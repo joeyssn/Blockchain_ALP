@@ -1,0 +1,42 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_19-23d51c122cb2e15bd8f4d51bd09984f63dfa4af8",
+  "solcVersion": "0.8.19",
+  "solcLongVersion": "0.8.19+commit.7dd6d404",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/AttendanceSystem.sol": "project/contracts/AttendanceSystem.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "paris",
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode.linkReferences",
+            "evm.bytecode.object",
+            "evm.bytecode.opcodes",
+            "evm.bytecode.sourceMap",
+            "evm.deployedBytecode.immutableReferences",
+            "evm.deployedBytecode.linkReferences",
+            "evm.deployedBytecode.object",
+            "evm.deployedBytecode.opcodes",
+            "evm.deployedBytecode.sourceMap",
+            "evm.methodIdentifiers"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/AttendanceSystem.sol": {
+        "content": "// SPDX-License-Identifier: MIT\r\npragma solidity ^0.8.19;\r\n\r\ncontract AttendanceSystem {\r\n\r\n    address public owner;\r\n\r\n    uint public sessionCount;\r\n\r\n    struct Student {\r\n        string name;\r\n        bool registered;\r\n    }\r\n\r\n    struct Session {\r\n        string subject;\r\n        bool active;\r\n    }\r\n\r\n    mapping(address => Student) public students;\r\n    mapping(uint => Session) public sessions;\r\n    mapping(uint => mapping(address => bool)) public attendance;\r\n\r\n    event StudentRegistered(address student, string name);\r\n    event SessionCreated(uint sessionId, string subject);\r\n    event AttendanceMarked(uint sessionId, address student);\r\n    event SessionClosed(uint sessionId);\r\n\r\n    modifier onlyOwner() {\r\n        require(msg.sender == owner, \"Not owner\");\r\n        _;\r\n    }\r\n\r\n    modifier onlyRegisteredStudent() {\r\n        require(students[msg.sender].registered, \"Not registered\");\r\n        _;\r\n    }\r\n\r\n    constructor() {\r\n        owner = msg.sender;\r\n    }\r\n\r\n    function registerStudent(\r\n        address _student,\r\n        string memory _name\r\n    ) public onlyOwner {\r\n\r\n        students[_student] = Student(_name, true);\r\n\r\n        emit StudentRegistered(_student, _name);\r\n    }\r\n\r\n    function createSession(\r\n        string memory _subject\r\n    ) public onlyOwner {\r\n\r\n        sessionCount++;\r\n\r\n        sessions[sessionCount] = Session(\r\n            _subject,\r\n            true\r\n        );\r\n\r\n        emit SessionCreated(sessionCount, _subject);\r\n    }\r\n\r\n    function closeSession(\r\n        uint _sessionId\r\n    ) public onlyOwner {\r\n\r\n        sessions[_sessionId].active = false;\r\n\r\n        emit SessionClosed(_sessionId);\r\n    }\r\n\r\n    function markAttendance(\r\n        uint _sessionId\r\n    ) public onlyRegisteredStudent {\r\n\r\n        require(\r\n            sessions[_sessionId].active,\r\n            \"Session closed\"\r\n        );\r\n\r\n        require(\r\n            !attendance[_sessionId][msg.sender],\r\n            \"Already attended\"\r\n        );\r\n\r\n        attendance[_sessionId][msg.sender] = true;\r\n\r\n        emit AttendanceMarked(\r\n            _sessionId,\r\n            msg.sender\r\n        );\r\n    }\r\n\r\n    function checkAttendance(\r\n        uint _sessionId,\r\n        address _student\r\n    ) public view returns(bool) {\r\n\r\n        return attendance[_sessionId][_student];\r\n    }\r\n\r\n    function getStudent(\r\n        address _student\r\n    ) public view returns(\r\n        string memory,\r\n        bool\r\n    ) {\r\n\r\n        Student memory s = students[_student];\r\n\r\n        return (\r\n            s.name,\r\n            s.registered\r\n        );\r\n    }\r\n\r\n    function getSession(\r\n        uint _sessionId\r\n    ) public view returns(\r\n        string memory,\r\n        bool\r\n    ) {\r\n\r\n        Session memory s = sessions[_sessionId];\r\n\r\n        return (\r\n            s.subject,\r\n            s.active\r\n        );\r\n    }\r\n}"
+      }
+    }
+  }
+}
