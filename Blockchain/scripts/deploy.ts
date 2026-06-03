@@ -4,7 +4,7 @@ async function main() {
 
     const contract =
         await hre.viem.deployContract(
-            "CertificateVerification"
+            "ProductAuthenticity"
         );
 
     console.log(

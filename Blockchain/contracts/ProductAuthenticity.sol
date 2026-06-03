@@ -2,77 +2,58 @@
 pragma solidity ^0.8.19;
 
 contract ProductAuthenticity {
-
-    // =========================
-    // STRUCT
-    // =========================
-
     struct Product {
-        uint id;
+        uint256 id;
         string productCode;
         string productName;
-        string category;
-        string brand;
         bool authentic;
-        bool exists;
         address registeredBy;
         address currentOwner;
+        bool exists;
     }
 
-    // =========================
-    // STATE VARIABLES
-    // =========================
-
     address public owner;
-    uint public productCount;
+    uint256 public productCount;
+    uint256 private activeProductCount;
 
-    mapping(uint => Product) public products;
+    mapping(uint256 => Product) public products;
     mapping(string => uint) public productCodeToId;
 
-    // =========================
-    // EVENTS
-    // =========================
-
     event ProductRegistered(
-        uint productId,
+        uint256 indexed productId,
         string productCode,
-        string productName
+        string productName,
+        address indexed registeredBy,
+        address indexed currentOwner
     );
 
     event ProductUpdated(
-        uint productId
-    );
-
-    event ProductRemoved(
-        uint productId
-    );
-
-    event OwnershipTransferred(
-        uint productId,
-        address oldOwner,
-        address newOwner
-    );
-
-    event AuthenticityChanged(
-        uint productId,
+        uint256 indexed productId,
+        string productName,
         bool authentic
     );
 
-    // =========================
-    // MODIFIERS
-    // =========================
+    event ProductRemoved(
+        uint256 indexed productId
+    );
+
+    event OwnershipTransferred(
+        uint256 indexed productId,
+        address indexed oldOwner,
+        address indexed newOwner
+    );
 
     modifier onlyOwner() {
         require(msg.sender == owner, "Not contract owner");
         _;
     }
 
-    modifier productExists(uint _id) {
+    modifier productExists(uint256 _id) {
         require(products[_id].exists, "Product does not exist");
         _;
     }
 
-    modifier onlyProductOwner(uint _id) {
+    modifier onlyProductOwner(uint256 _id) {
         require(
             msg.sender == products[_id].currentOwner,
             "Not product owner"
@@ -88,21 +69,16 @@ contract ProductAuthenticity {
         owner = msg.sender;
     }
 
-    // =========================
-    // FUNCTION 1
-    // REGISTER PRODUCT
-    // =========================
-
     function registerProduct(
         string memory _productCode,
         string memory _productName,
-        string memory _category,
-        string memory _brand,
         address _productOwner
     )
         public
         onlyOwner
     {
+        require(bytes(_productCode).length > 0, "Product code required");
+        require(bytes(_productName).length > 0, "Product name required");
         require(
             productCodeToId[_productCode] == 0,
             "Product code already exists"
@@ -114,17 +90,16 @@ contract ProductAuthenticity {
         );
 
         productCount++;
+        activeProductCount++;
 
         products[productCount] = Product({
             id: productCount,
             productCode: _productCode,
             productName: _productName,
-            category: _category,
-            brand: _brand,
             authentic: true,
-            exists: true,
             registeredBy: msg.sender,
-            currentOwner: _productOwner
+            currentOwner: _productOwner,
+            exists: true
         });
 
         productCodeToId[_productCode] = productCount;
@@ -132,14 +107,11 @@ contract ProductAuthenticity {
         emit ProductRegistered(
             productCount,
             _productCode,
-            _productName
+            _productName,
+            msg.sender,
+            _productOwner
         );
     }
-
-    // =========================
-    // FUNCTION 2
-    // VERIFY PRODUCT
-    // =========================
 
     function verifyProduct(
         string memory _productCode
@@ -154,16 +126,15 @@ contract ProductAuthenticity {
             return false;
         }
 
+        if(!products[id].exists) {
+            return false;
+        }
+
         return products[id].authentic;
     }
 
-    // =========================
-    // FUNCTION 3
-    // GET PRODUCT
-    // =========================
-
     function getProduct(
-        uint _id
+        uint256 _id
     )
         public
         view
@@ -172,9 +143,8 @@ contract ProductAuthenticity {
             uint,
             string memory,
             string memory,
-            string memory,
-            string memory,
             bool,
+            address,
             address
         )
     {
@@ -184,23 +154,33 @@ contract ProductAuthenticity {
             p.id,
             p.productCode,
             p.productName,
-            p.category,
-            p.brand,
             p.authentic,
+            p.registeredBy,
             p.currentOwner
         );
     }
 
-    // =========================
-    // FUNCTION 4
-    // UPDATE PRODUCT
-    // =========================
-
     function updateProduct(
-        uint _id,
+        uint256 _id,
         string memory _newName,
-        string memory _newCategory,
-        string memory _newBrand
+        bool _authentic
+    )
+        public
+        onlyOwner
+        productExists(_id)
+    {
+        require(bytes(_newName).length > 0, "Product name required");
+
+        Product storage p = products[_id];
+
+        p.productName = _newName;
+        p.authentic = _authentic;
+
+        emit ProductUpdated(_id, _newName, _authentic);
+    }
+
+    function removeProduct(
+        uint256 _id
     )
         public
         onlyOwner
@@ -208,37 +188,16 @@ contract ProductAuthenticity {
     {
         Product storage p = products[_id];
 
-        p.productName = _newName;
-        p.category = _newCategory;
-        p.brand = _newBrand;
-
-        emit ProductUpdated(_id);
-    }
-
-    // =========================
-    // FUNCTION 5
-    // REMOVE PRODUCT
-    // =========================
-
-    function removeProduct(
-        uint _id
-    )
-        public
-        onlyOwner
-        productExists(_id)
-    {
-        products[_id].exists = false;
+        p.exists = false;
+        p.authentic = false;
+        productCodeToId[p.productCode] = 0;
+        activeProductCount--;
 
         emit ProductRemoved(_id);
     }
 
-    // =========================
-    // FUNCTION 6
-    // TRANSFER OWNERSHIP
-    // =========================
-
     function transferOwnership(
-        uint _id,
+        uint256 _id,
         address _newOwner
     )
         public
@@ -261,42 +220,20 @@ contract ProductAuthenticity {
         );
     }
 
-    // =========================
-    // FUNCTION 7
-    // TOGGLE AUTHENTICITY
-    // =========================
-
-    function toggleAuthenticity(
-        uint _id,
-        bool _status
-    )
-        public
-        onlyOwner
-        productExists(_id)
-    {
-        products[_id].authentic = _status;
-
-        emit AuthenticityChanged(
-            _id,
-            _status
-        );
-    }
-
-    // =========================
-    // FUNCTION 8
-    // GET ALL PRODUCTS
-    // =========================
-
     function getAllProducts()
         public
         view
         returns(Product[] memory)
     {
         Product[] memory allProducts =
-            new Product[](productCount);
+            new Product[](activeProductCount);
+        uint256 index = 0;
 
-        for(uint i = 0; i < productCount; i++) {
-            allProducts[i] = products[i + 1];
+        for(uint256 i = 1; i <= productCount; i++) {
+            if(products[i].exists) {
+                allProducts[index] = products[i];
+                index++;
+            }
         }
 
         return allProducts;
