@@ -1,5 +1,7 @@
 const apiBaseUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
+export { apiBaseUrl };
+
 async function request(path, options = {}) {
   const response = await fetch(`${apiBaseUrl}${path}`, {
     headers: {
@@ -24,6 +26,10 @@ async function request(path, options = {}) {
 
 export function listMetadata() {
   return request("/api/products");
+}
+
+export function checkBackendHealth() {
+  return request("/health");
 }
 
 export function getMetadata(productCode) {

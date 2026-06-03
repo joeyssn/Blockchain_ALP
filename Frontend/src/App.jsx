@@ -1,22 +1,16 @@
 import {
   CheckCircle2,
   Database,
-  List,
+  Edit3,
   PackagePlus,
   RefreshCw,
   Search,
-  Send,
-  ShieldCheck,
   Trash2,
-  Wallet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  createProductContract,
-  normalizeProduct,
-  requestWalletAccount,
-} from "./services/contract.js";
-import {
+  apiBaseUrl,
+  checkBackendHealth,
   createMetadata,
   deleteMetadata,
   getMetadata,
@@ -24,525 +18,393 @@ import {
   updateMetadata,
 } from "./services/productApi.js";
 
-const initialRegisterForm = {
+const emptyForm = {
   productCode: "",
+  blockchainProductId: "",
   productName: "",
-  productOwner: "",
-  description: "",
-  imageUrl: "",
   category: "",
   brand: "",
+  imageUrl: "",
+  description: "",
   sellerName: "",
   sellerWallet: "",
   sellerContact: "",
 };
 
-const initialUpdateForm = {
-  id: "",
-  productCode: "",
-  productName: "",
-  authentic: true,
-  description: "",
-  imageUrl: "",
-  category: "",
-  brand: "",
-  sellerName: "",
-  sellerWallet: "",
-  sellerContact: "",
-};
-
-function shortAddress(address) {
-  if (!address) return "";
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
-
-function metadataPayload(form, blockchainProductId) {
+function toPayload(form) {
   return {
-    productCode: form.productCode,
-    blockchainProductId: Number(blockchainProductId),
-    productName: form.productName,
-    description: form.description,
-    imageUrl: form.imageUrl,
-    category: form.category,
-    brand: form.brand,
+    productCode: form.productCode.trim(),
+    blockchainProductId: Number(form.blockchainProductId || 1),
+    productName: form.productName.trim(),
+    category: form.category.trim(),
+    brand: form.brand.trim(),
+    imageUrl: form.imageUrl.trim(),
+    description: form.description.trim(),
     seller: {
-      name: form.sellerName,
-      walletAddress: form.sellerWallet,
-      contact: form.sellerContact,
+      name: form.sellerName.trim(),
+      walletAddress: form.sellerWallet.trim(),
+      contact: form.sellerContact.trim(),
     },
   };
 }
 
-export function App() {
-  const [account, setAccount] = useState("");
-  const [registerForm, setRegisterForm] = useState(initialRegisterForm);
-  const [updateForm, setUpdateForm] = useState(initialUpdateForm);
-  const [verifyCode, setVerifyCode] = useState("");
-  const [detailId, setDetailId] = useState("");
-  const [removeId, setRemoveId] = useState("");
-  const [removeCode, setRemoveCode] = useState("");
-  const [transferId, setTransferId] = useState("");
-  const [newOwner, setNewOwner] = useState("");
-  const [products, setProducts] = useState([]);
-  const [metadata, setMetadata] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [verification, setVerification] = useState(null);
-  const [status, setStatus] = useState("Ready");
+function toForm(product) {
+  return {
+    productCode: product.productCode || "",
+    blockchainProductId: product.blockchainProductId || "",
+    productName: product.productName || "",
+    category: product.category || "",
+    brand: product.brand || "",
+    imageUrl: product.imageUrl || "",
+    description: product.description || "",
+    sellerName: product.seller?.name || "",
+    sellerWallet: product.seller?.walletAddress || "",
+    sellerContact: product.seller?.contact || "",
+  };
+}
 
-  const contract = useMemo(() => {
-    try {
-      return createProductContract(account || undefined);
-    } catch {
-      return null;
-    }
-  }, [account]);
+export function App() {
+  const [form, setForm] = useState(emptyForm);
+  const [products, setProducts] = useState([]);
+  const [searchCode, setSearchCode] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [editingCode, setEditingCode] = useState("");
+  const [backendOnline, setBackendOnline] = useState(false);
+  const [message, setMessage] = useState("Checking backend connection...");
+
+  const mode = editingCode ? "Update Product" : "Register Product";
+
+  const totalProducts = products.length;
+  const latestProduct = useMemo(() => products[0], [products]);
 
   async function run(label, action) {
     try {
-      setStatus(`${label}...`);
+      setMessage(`${label}...`);
       await action();
-      setStatus(`${label} complete`);
+      setMessage(`${label} complete`);
     } catch (error) {
-      setStatus(error.message);
+      setMessage(error.message);
     }
   }
 
-  async function connectWallet() {
-    await run("Connecting wallet", async () => {
-      setAccount(await requestWalletAccount());
-    });
+  async function refreshProducts() {
+    const data = await listMetadata();
+    setProducts(data);
   }
 
-  async function loadAllProducts() {
-    if (!contract) {
-      throw new Error("Connect wallet and configure contract address");
+  async function checkConnection() {
+    try {
+      await checkBackendHealth();
+      setBackendOnline(true);
+      setMessage("Backend connected");
+      await refreshProducts();
+    } catch (error) {
+      setBackendOnline(false);
+      setMessage(`Backend offline: ${error.message}`);
     }
-
-    const chainProducts = await contract.read.getAllProducts();
-    setProducts(chainProducts.map(normalizeProduct));
-    setMetadata(await listMetadata());
   }
 
-  async function registerProduct(event) {
+  useEffect(() => {
+    checkConnection();
+  }, []);
+
+  async function handleSubmit(event) {
     event.preventDefault();
 
-    await run("Registering product", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
+    await run(mode, async () => {
+      if (editingCode) {
+        await updateMetadata(editingCode, toPayload(form));
+      } else {
+        await createMetadata(toPayload(form));
       }
 
-      await contract.write.registerProduct([
-        registerForm.productCode,
-        registerForm.productName,
-        registerForm.productOwner,
-      ]);
-
-      const allProducts = (await contract.read.getAllProducts()).map(normalizeProduct);
-      const createdProduct = allProducts.find(
-        (product) => product.productCode === registerForm.productCode
-      );
-
-      if (!createdProduct) {
-        throw new Error("Product registered, but product id was not found");
-      }
-
-      await createMetadata(metadataPayload(registerForm, createdProduct.id));
-      setRegisterForm(initialRegisterForm);
-      await loadAllProducts();
+      setForm(emptyForm);
+      setEditingCode("");
+      await refreshProducts();
     });
   }
 
-  async function verifyProduct(event) {
+  async function handleSearch(event) {
     event.preventDefault();
 
-    await run("Verifying product", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
-      }
-
-      const authentic = await contract.read.verifyProduct([verifyCode]);
-      let offChainMetadata = null;
-
-      try {
-        offChainMetadata = await getMetadata(verifyCode);
-      } catch {
-        offChainMetadata = null;
-      }
-
-      setVerification({
-        productCode: verifyCode,
-        authentic,
-        metadata: offChainMetadata,
-      });
+    await run("Searching product", async () => {
+      const product = await getMetadata(searchCode.trim());
+      setSelectedProduct(product);
     });
   }
 
-  async function loadProductDetails(event) {
-    event.preventDefault();
+  async function handleDelete(productCode) {
+    await run("Deleting product", async () => {
+      await deleteMetadata(productCode);
 
-    await run("Loading product", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
+      if (selectedProduct?.productCode === productCode) {
+        setSelectedProduct(null);
       }
 
-      const product = normalizeProduct(await contract.read.getProduct([BigInt(detailId)]));
-      let productMetadata = null;
-
-      try {
-        productMetadata = await getMetadata(product.productCode);
-      } catch {
-        productMetadata = null;
+      if (editingCode === productCode) {
+        setEditingCode("");
+        setForm(emptyForm);
       }
 
-      setSelectedProduct({ ...product, metadata: productMetadata });
+      await refreshProducts();
     });
   }
 
-  async function updateProduct(event) {
-    event.preventDefault();
-
-    await run("Updating product", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
-      }
-
-      await contract.write.updateProduct([
-        BigInt(updateForm.id),
-        updateForm.productName,
-        updateForm.authentic,
-      ]);
-      await updateMetadata(
-        updateForm.productCode,
-        metadataPayload(updateForm, updateForm.id)
-      );
-      setUpdateForm(initialUpdateForm);
-      await loadAllProducts();
-    });
+  function handleEdit(product) {
+    setEditingCode(product.productCode);
+    setForm(toForm(product));
+    setMessage(`Editing ${product.productCode}`);
   }
 
-  async function removeProduct(event) {
-    event.preventDefault();
-
-    await run("Removing product", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
-      }
-
-      await contract.write.removeProduct([BigInt(removeId)]);
-
-      if (removeCode) {
-        await deleteMetadata(removeCode);
-      }
-
-      setRemoveId("");
-      setRemoveCode("");
-      await loadAllProducts();
-    });
-  }
-
-  async function transferOwnership(event) {
-    event.preventDefault();
-
-    await run("Transferring ownership", async () => {
-      if (!contract) {
-        throw new Error("Connect wallet and configure contract address");
-      }
-
-      await contract.write.transferOwnership([BigInt(transferId), newOwner]);
-      setTransferId("");
-      setNewOwner("");
-      await loadAllProducts();
-    });
-  }
-
-  function fillUpdate(product) {
-    const meta = metadata.find((item) => item.productCode === product.productCode);
-
-    setUpdateForm({
-      id: product.id,
-      productCode: product.productCode,
-      productName: product.productName,
-      authentic: product.authentic,
-      description: meta?.description || "",
-      imageUrl: meta?.imageUrl || "",
-      category: meta?.category || "",
-      brand: meta?.brand || "",
-      sellerName: meta?.seller?.name || "",
-      sellerWallet: meta?.seller?.walletAddress || "",
-      sellerContact: meta?.seller?.contact || "",
-    });
+  function handleCancelEdit() {
+    setEditingCode("");
+    setForm(emptyForm);
+    setMessage("Edit cancelled");
   }
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
+    <main className="page">
+      <header className="header">
         <div>
+          <p className="eyebrow">Backend connected demo</p>
           <h1>Product Authenticity Verification</h1>
-          <p>Smart contract authenticity with off-chain product metadata</p>
+          <p className="subtitle">
+            Simple product metadata frontend connected to the Express backend.
+          </p>
         </div>
-        <button className="primary-button" onClick={connectWallet} title="Connect wallet">
-          <Wallet size={18} />
-          {account ? shortAddress(account) : "Connect"}
-        </button>
+        <div className={backendOnline ? "connection online" : "connection offline"}>
+          <span></span>
+          {backendOnline ? "Backend online" : "Backend offline"}
+        </div>
       </header>
 
-      <section className="status-bar">
-        <span>{status}</span>
-        <button onClick={() => run("Refreshing products", loadAllProducts)} title="Refresh products">
-          <RefreshCw size={16} />
+      <section className="status-row">
+        <div>
+          <strong>{message}</strong>
+          <small>API: {apiBaseUrl}</small>
+        </div>
+        <button onClick={() => run("Refreshing products", refreshProducts)}>
+          <RefreshCw size={17} />
+          Refresh
         </button>
       </section>
 
-      <section className="workspace-grid">
-        <form className="panel register-panel" onSubmit={registerProduct}>
-          <div className="panel-heading">
+      <section className="stats">
+        <div>
+          <span>{totalProducts}</span>
+          <p>Products stored in backend</p>
+        </div>
+        <div>
+          <span>{latestProduct?.productCode || "-"}</span>
+          <p>Latest product code</p>
+        </div>
+        <div>
+          <span>{backendOnline ? "OK" : "OFF"}</span>
+          <p>Backend connection</p>
+        </div>
+      </section>
+
+      <section className="grid">
+        <form className="panel" onSubmit={handleSubmit}>
+          <div className="panel-title">
             <PackagePlus size={20} />
-            <h2>Register Product</h2>
+            <h2>{mode}</h2>
           </div>
-          <div className="field-grid">
+
+          <div className="form-grid">
             <label>
               Product Code
-              <input required value={registerForm.productCode} onChange={(event) => setRegisterForm({ ...registerForm, productCode: event.target.value })} />
+              <input
+                required
+                disabled={Boolean(editingCode)}
+                value={form.productCode}
+                onChange={(event) =>
+                  setForm({ ...form, productCode: event.target.value })
+                }
+              />
             </label>
-            <label>
-              Product Name
-              <input required value={registerForm.productName} onChange={(event) => setRegisterForm({ ...registerForm, productName: event.target.value })} />
-            </label>
-            <label className="wide">
-              Product Owner Wallet
-              <input required value={registerForm.productOwner} onChange={(event) => setRegisterForm({ ...registerForm, productOwner: event.target.value })} />
-            </label>
-            <label>
-              Category
-              <input value={registerForm.category} onChange={(event) => setRegisterForm({ ...registerForm, category: event.target.value })} />
-            </label>
-            <label>
-              Brand
-              <input value={registerForm.brand} onChange={(event) => setRegisterForm({ ...registerForm, brand: event.target.value })} />
-            </label>
-            <label className="wide">
-              Image URL
-              <input value={registerForm.imageUrl} onChange={(event) => setRegisterForm({ ...registerForm, imageUrl: event.target.value })} />
-            </label>
-            <label className="wide">
-              Description
-              <textarea value={registerForm.description} onChange={(event) => setRegisterForm({ ...registerForm, description: event.target.value })} />
-            </label>
-            <label>
-              Seller Name
-              <input value={registerForm.sellerName} onChange={(event) => setRegisterForm({ ...registerForm, sellerName: event.target.value })} />
-            </label>
-            <label>
-              Seller Wallet
-              <input value={registerForm.sellerWallet} onChange={(event) => setRegisterForm({ ...registerForm, sellerWallet: event.target.value })} />
-            </label>
-            <label className="wide">
-              Seller Contact
-              <input value={registerForm.sellerContact} onChange={(event) => setRegisterForm({ ...registerForm, sellerContact: event.target.value })} />
-            </label>
-          </div>
-          <button className="primary-button" type="submit">
-            <ShieldCheck size={18} />
-            Register
-          </button>
-        </form>
-
-        <div className="stack">
-          <form className="panel" onSubmit={verifyProduct}>
-            <div className="panel-heading">
-              <Search size={20} />
-              <h2>Verify Authenticity</h2>
-            </div>
-            <label>
-              Product Code
-              <input required value={verifyCode} onChange={(event) => setVerifyCode(event.target.value)} />
-            </label>
-            <button className="primary-button" type="submit">
-              <CheckCircle2 size={18} />
-              Verify
-            </button>
-            {verification && (
-              <div className={verification.authentic ? "result authentic" : "result invalid"}>
-                <strong>{verification.productCode}</strong>
-                <span>{verification.authentic ? "Authentic" : "Not authentic or not registered"}</span>
-                {verification.metadata?.productName && <small>{verification.metadata.productName}</small>}
-              </div>
-            )}
-          </form>
-
-          <form className="panel" onSubmit={loadProductDetails}>
-            <div className="panel-heading">
-              <Database size={20} />
-              <h2>Product Details</h2>
-            </div>
             <label>
               Blockchain Product ID
-              <input required type="number" min="1" value={detailId} onChange={(event) => setDetailId(event.target.value)} />
+              <input
+                required
+                min="1"
+                type="number"
+                value={form.blockchainProductId}
+                onChange={(event) =>
+                  setForm({ ...form, blockchainProductId: event.target.value })
+                }
+              />
             </label>
-            <button type="submit">
-              <Search size={18} />
-              Load
-            </button>
-            {selectedProduct && (
-              <dl className="details-list">
-                <dt>Code</dt>
-                <dd>{selectedProduct.productCode}</dd>
-                <dt>Name</dt>
-                <dd>{selectedProduct.productName}</dd>
-                <dt>Authentic</dt>
-                <dd>{selectedProduct.authentic ? "Yes" : "No"}</dd>
-                <dt>Owner</dt>
-                <dd>{shortAddress(selectedProduct.currentOwner)}</dd>
-                <dt>Description</dt>
-                <dd>{selectedProduct.metadata?.description || "No metadata"}</dd>
-              </dl>
-            )}
-          </form>
-        </div>
-      </section>
-
-      <section className="workspace-grid lower-grid">
-        <form className="panel" onSubmit={updateProduct}>
-          <div className="panel-heading">
-            <RefreshCw size={20} />
-            <h2>Update Product</h2>
-          </div>
-          <div className="field-grid">
-            <label>
-              Product ID
-              <input required type="number" min="1" value={updateForm.id} onChange={(event) => setUpdateForm({ ...updateForm, id: event.target.value })} />
-            </label>
-            <label>
-              Product Code
-              <input required value={updateForm.productCode} onChange={(event) => setUpdateForm({ ...updateForm, productCode: event.target.value })} />
-            </label>
-            <label>
+            <label className="wide">
               Product Name
-              <input required value={updateForm.productName} onChange={(event) => setUpdateForm({ ...updateForm, productName: event.target.value })} />
-            </label>
-            <label className="checkbox-row">
-              <input type="checkbox" checked={updateForm.authentic} onChange={(event) => setUpdateForm({ ...updateForm, authentic: event.target.checked })} />
-              Authentic
+              <input
+                required
+                value={form.productName}
+                onChange={(event) =>
+                  setForm({ ...form, productName: event.target.value })
+                }
+              />
             </label>
             <label>
               Category
-              <input value={updateForm.category} onChange={(event) => setUpdateForm({ ...updateForm, category: event.target.value })} />
+              <input
+                value={form.category}
+                onChange={(event) =>
+                  setForm({ ...form, category: event.target.value })
+                }
+              />
             </label>
             <label>
               Brand
-              <input value={updateForm.brand} onChange={(event) => setUpdateForm({ ...updateForm, brand: event.target.value })} />
+              <input
+                value={form.brand}
+                onChange={(event) => setForm({ ...form, brand: event.target.value })}
+              />
             </label>
             <label className="wide">
               Image URL
-              <input value={updateForm.imageUrl} onChange={(event) => setUpdateForm({ ...updateForm, imageUrl: event.target.value })} />
+              <input
+                value={form.imageUrl}
+                onChange={(event) =>
+                  setForm({ ...form, imageUrl: event.target.value })
+                }
+              />
             </label>
             <label className="wide">
               Description
-              <textarea value={updateForm.description} onChange={(event) => setUpdateForm({ ...updateForm, description: event.target.value })} />
+              <textarea
+                value={form.description}
+                onChange={(event) =>
+                  setForm({ ...form, description: event.target.value })
+                }
+              />
             </label>
             <label>
               Seller Name
-              <input value={updateForm.sellerName} onChange={(event) => setUpdateForm({ ...updateForm, sellerName: event.target.value })} />
+              <input
+                value={form.sellerName}
+                onChange={(event) =>
+                  setForm({ ...form, sellerName: event.target.value })
+                }
+              />
             </label>
             <label>
               Seller Wallet
-              <input value={updateForm.sellerWallet} onChange={(event) => setUpdateForm({ ...updateForm, sellerWallet: event.target.value })} />
+              <input
+                value={form.sellerWallet}
+                onChange={(event) =>
+                  setForm({ ...form, sellerWallet: event.target.value })
+                }
+              />
             </label>
             <label className="wide">
               Seller Contact
-              <input value={updateForm.sellerContact} onChange={(event) => setUpdateForm({ ...updateForm, sellerContact: event.target.value })} />
+              <input
+                value={form.sellerContact}
+                onChange={(event) =>
+                  setForm({ ...form, sellerContact: event.target.value })
+                }
+              />
             </label>
           </div>
-          <button type="submit">
-            <RefreshCw size={18} />
-            Update
-          </button>
+
+          <div className="actions">
+            <button className="primary" type="submit">
+              <CheckCircle2 size={18} />
+              {mode}
+            </button>
+            {editingCode && (
+              <button type="button" onClick={handleCancelEdit}>
+                Cancel
+              </button>
+            )}
+          </div>
         </form>
 
-        <div className="stack">
-          <form className="panel" onSubmit={transferOwnership}>
-            <div className="panel-heading">
-              <Send size={20} />
-              <h2>Transfer Ownership</h2>
-            </div>
-            <label>
-              Product ID
-              <input required type="number" min="1" value={transferId} onChange={(event) => setTransferId(event.target.value)} />
-            </label>
-            <label>
-              New Owner Wallet
-              <input required value={newOwner} onChange={(event) => setNewOwner(event.target.value)} />
-            </label>
-            <button type="submit">
-              <Send size={18} />
-              Transfer
+        <aside className="panel">
+          <div className="panel-title">
+            <Search size={20} />
+            <h2>Find Product</h2>
+          </div>
+          <form className="search-form" onSubmit={handleSearch}>
+            <input
+              required
+              placeholder="Example: PRD-001"
+              value={searchCode}
+              onChange={(event) => setSearchCode(event.target.value)}
+            />
+            <button className="primary" type="submit">
+              Search
             </button>
           </form>
 
-          <form className="panel danger-panel" onSubmit={removeProduct}>
-            <div className="panel-heading">
-              <Trash2 size={20} />
-              <h2>Remove Product</h2>
+          {selectedProduct && (
+            <div className="product-card">
+              {selectedProduct.imageUrl && (
+                <img src={selectedProduct.imageUrl} alt={selectedProduct.productName} />
+              )}
+              <h3>{selectedProduct.productName}</h3>
+              <p>{selectedProduct.description || "No description"}</p>
+              <dl>
+                <dt>Code</dt>
+                <dd>{selectedProduct.productCode}</dd>
+                <dt>Category</dt>
+                <dd>{selectedProduct.category || "-"}</dd>
+                <dt>Brand</dt>
+                <dd>{selectedProduct.brand || "-"}</dd>
+                <dt>Seller</dt>
+                <dd>{selectedProduct.seller?.name || "-"}</dd>
+              </dl>
             </div>
-            <label>
-              Product ID
-              <input required type="number" min="1" value={removeId} onChange={(event) => setRemoveId(event.target.value)} />
-            </label>
-            <label>
-              Product Code
-              <input value={removeCode} onChange={(event) => setRemoveCode(event.target.value)} />
-            </label>
-            <button type="submit">
-              <Trash2 size={18} />
-              Remove
-            </button>
-          </form>
-        </div>
+          )}
+        </aside>
       </section>
 
-      <section className="panel products-panel">
-        <div className="panel-heading">
-          <List size={20} />
-          <h2>All Registered Products</h2>
+      <section className="panel table-panel">
+        <div className="panel-title">
+          <Database size={20} />
+          <h2>Products From Backend</h2>
         </div>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Code</th>
                 <th>Name</th>
-                <th>Authentic</th>
-                <th>Owner</th>
                 <th>Category</th>
                 <th>Brand</th>
-                <th></th>
+                <th>Seller</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {products.map((product) => {
-                const meta = metadata.find((item) => item.productCode === product.productCode);
-                return (
-                  <tr key={product.id}>
-                    <td>{product.id}</td>
-                    <td>{product.productCode}</td>
-                    <td>{product.productName}</td>
-                    <td>{product.authentic ? "Yes" : "No"}</td>
-                    <td>{shortAddress(product.currentOwner)}</td>
-                    <td>{meta?.category || ""}</td>
-                    <td>{meta?.brand || ""}</td>
-                    <td>
-                      <button className="icon-button" onClick={() => fillUpdate(product)} title="Edit product">
-                        <RefreshCw size={16} />
+              {products.map((product) => (
+                <tr key={product.productCode}>
+                  <td>{product.productCode}</td>
+                  <td>{product.productName}</td>
+                  <td>{product.category || "-"}</td>
+                  <td>{product.brand || "-"}</td>
+                  <td>{product.seller?.name || "-"}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button onClick={() => handleEdit(product)} title="Edit">
+                        <Edit3 size={16} />
                       </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      <button
+                        className="danger"
+                        onClick={() => handleDelete(product.productCode)}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
               {products.length === 0 && (
                 <tr>
-                  <td colSpan="8" className="empty-cell">
-                    No products loaded
+                  <td className="empty" colSpan="6">
+                    No products yet. Add one from the form above.
                   </td>
                 </tr>
               )}
