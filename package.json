@@ -2,11 +2,19 @@
   "name": "product-authenticity-verification-system",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "Backend",
+    "Blockchain",
+    "Frontend"
+  ],
   "scripts": {
     "build": "npm --prefix Blockchain run build && npm --prefix Frontend run build",
+    "dev": "npm --prefix Frontend run dev",
     "test": "npm --prefix Blockchain test",
     "dev:frontend": "npm --prefix Frontend run dev",
     "dev:backend": "npm --prefix Backend run dev",
+    "start:backend": "npm --prefix Backend start",
+    "preview": "npm --prefix Frontend run preview",
     "deploy:contract": "npx --prefix Blockchain hardhat run scripts/deploy.ts"
   }
 }

@@ -1,0 +1,10 @@
+Backend/
+Blockchain/
+docs/
+.idea/
+node_modules/
+**/node_modules/
+**/.env
+**/.env.local
+Blockchain/cache/
+Blockchain/artifacts/

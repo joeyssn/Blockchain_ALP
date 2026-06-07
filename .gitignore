@@ -3,7 +3,16 @@ dist/
 .env
 .env.local
 .env.*.local
+npm-debug.log*
 
 Blockchain/cache/
 Blockchain/artifacts/
+Backend/node_modules/
+Frontend/node_modules/
+Blockchain/node_modules/
 Frontend/dist/
+Backend/.env
+Frontend/.env
+Blockchain/.env
+.firebase/
+.vercel/
