@@ -1,21 +1,17 @@
 import {
-  ArrowLeftRight,
+  Building2,
   History,
-  LayoutDashboard,
-  Package,
-  PackagePlus,
+  Home,
   ShieldCheck,
   UserCircle,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const links = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/products", label: "Products", icon: Package },
-  { to: "/register", label: "Register Product", icon: PackagePlus },
-  { to: "/verify", label: "Verify Product", icon: ShieldCheck },
-  { to: "/transfer", label: "Ownership Transfer", icon: ArrowLeftRight },
-  { to: "/transactions", label: "Transaction History", icon: History },
+  { to: "/", label: "Home", icon: Home },
+  { to: "/verify", label: "Verify Shoe", icon: ShieldCheck },
+  { to: "/company", label: "Company Dashboard", icon: Building2 },
+  { to: "/admin", label: "Admin Dashboard", icon: History },
   { to: "/profile", label: "Profile", icon: UserCircle },
 ];
 
@@ -36,8 +32,8 @@ export function Sidebar({ open, onClose }) {
             PV
           </div>
           <div>
-            <p className="font-bold text-ink-900">ProductVerify</p>
-            <p className="text-xs text-ink-500">Web3 authenticity</p>
+            <p className="font-bold text-ink-900">ShoeVerify</p>
+            <p className="text-xs text-ink-500">Blockchain authenticity</p>
           </div>
         </div>
 
@@ -68,7 +64,7 @@ export function Sidebar({ open, onClose }) {
         <div className="mt-auto rounded-xl bg-ink-900 p-4 text-white">
           <p className="text-sm font-semibold">Demo mode active</p>
           <p className="mt-1 text-xs text-ink-200">
-            Mock product and transaction data are ready for future contract integration.
+            Shoe-only verification. No payments, NFT, marketplace, or ownership transfer.
           </p>
         </div>
       </aside>

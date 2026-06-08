@@ -3,15 +3,13 @@ import { createApp } from "./app.js";
 import { connectDatabase } from "./config/database.js";
 
 const port = process.env.PORT || 5000;
-const mongoUri =
-  process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/product_authenticity";
 
 async function startServer() {
   try {
-    await connectDatabase(mongoUri);
-    console.log("MongoDB connected");
+    await connectDatabase();
+    console.log("MySQL connected");
   } catch (error) {
-    console.warn("MongoDB unavailable. Using temporary in-memory storage.");
+    console.warn("MySQL unavailable. Using temporary in-memory storage.");
     console.warn(error.message);
   }
 

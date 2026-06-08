@@ -16,10 +16,10 @@ export function Navbar({ wallet, onConnect, onDisconnect, loading, onMenuClick }
           <div>
             <div className="flex items-center gap-2">
               <ShieldCheck className="h-5 w-5 text-web3-600" />
-              <h1 className="text-lg font-bold text-ink-900">Blockchain Product Verification</h1>
+              <h1 className="text-lg font-bold text-ink-900">Blockchain Shoe Verification</h1>
             </div>
             <p className="hidden text-sm text-ink-500 sm:block">
-              Wallet-authenticated dashboard for product authenticity workflows
+              Verify authentic shoes using company wallets and smart contract records
             </p>
           </div>
         </div>

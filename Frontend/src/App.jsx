@@ -3,13 +3,11 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ErrorMessage } from "./components/ErrorMessage.jsx";
 import { Navbar } from "./components/Navbar.jsx";
 import { Sidebar } from "./components/Sidebar.jsx";
-import { Dashboard } from "./pages/Dashboard.jsx";
-import { OwnershipTransfer } from "./pages/OwnershipTransfer.jsx";
-import { Products } from "./pages/Products.jsx";
+import { AdminDashboard } from "./pages/AdminDashboard.jsx";
+import { CompanyDashboard } from "./pages/CompanyDashboard.jsx";
+import { Home } from "./pages/Home.jsx";
 import { Profile } from "./pages/Profile.jsx";
-import { RegisterProduct } from "./pages/RegisterProduct.jsx";
-import { TransactionHistory } from "./pages/TransactionHistory.jsx";
-import { VerifyProduct } from "./pages/VerifyProduct.jsx";
+import { VerifyShoe } from "./pages/VerifyShoe.jsx";
 import {
   connectWallet,
   disconnectWallet,
@@ -101,12 +99,10 @@ export function App() {
               <div className="mx-auto grid max-w-7xl gap-6">
                 <ErrorMessage message={error} onDismiss={() => setError("")} />
                 <Routes>
-                  <Route element={<Dashboard wallet={wallet} />} path="/" />
-                  <Route element={<Products />} path="/products" />
-                  <Route element={<RegisterProduct />} path="/register" />
-                  <Route element={<VerifyProduct />} path="/verify" />
-                  <Route element={<OwnershipTransfer />} path="/transfer" />
-                  <Route element={<TransactionHistory />} path="/transactions" />
+                  <Route element={<Home />} path="/" />
+                  <Route element={<VerifyShoe wallet={wallet} />} path="/verify" />
+                  <Route element={<CompanyDashboard wallet={wallet} />} path="/company" />
+                  <Route element={<AdminDashboard wallet={wallet} />} path="/admin" />
                   <Route element={<Profile wallet={wallet} />} path="/profile" />
                 </Routes>
               </div>

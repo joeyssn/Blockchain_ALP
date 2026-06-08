@@ -2,7 +2,10 @@ import cors from "cors";
 import express from "express";
 import morgan from "morgan";
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler.js";
-import { productRoutes } from "./routes/productRoutes.js";
+import { activityRoutes } from "./routes/activityRoutes.js";
+import { companyRoutes } from "./routes/companyRoutes.js";
+import { shoeRoutes } from "./routes/shoeRoutes.js";
+import { verificationRoutes } from "./routes/verificationRoutes.js";
 
 export function createApp() {
   const app = express();
@@ -19,7 +22,10 @@ export function createApp() {
     res.json({ status: "ok" });
   });
 
-  app.use("/api/products", productRoutes);
+  app.use("/api/companies", companyRoutes);
+  app.use("/api/shoes", shoeRoutes);
+  app.use("/api/verify", verificationRoutes);
+  app.use("/api/activity-logs", activityRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
