@@ -1,8 +1,11 @@
-import { Building2, PackagePlus, Save } from "lucide-react";
-import { useEffect, useState } from "react";
-import { ErrorMessage } from "../components/ErrorMessage.jsx";
+import { Building2, PackagePlus, Save, ShieldCheck } from "lucide-react";
+import { FormEvent, useEffect, useState } from "react";
 import { EmptyState } from "../components/EmptyState.jsx";
+import { ErrorMessage } from "../components/ErrorMessage.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
+import { StatCard } from "../components/StatCard.jsx";
+import { useAuth } from "../context/AuthContext";
+import { mockActivityLogs } from "../mock/shoes.js";
 import { listCompanyShoes, saveCompany, saveShoe } from "../services/shoeApi.js";
 import { createShoeContract, hasContractAddress } from "../services/shoeContract.js";
 import { formatAddress } from "../services/walletService.js";
@@ -17,72 +20,87 @@ const emptyShoe = {
   specifications: "",
 };
 
-export function CompanyDashboard({ wallet }) {
-  const [companyName, setCompanyName] = useState("");
+type CompanyShoe = {
+  product_code: string;
+  brand: string;
+  model: string;
+  release_year: number;
+  image_url?: string;
+  description?: string;
+  specifications?: string;
+};
+
+export function CompanyDashboard() {
+  const { companyName, wallet, walletAddress } = useAuth();
+  const [editableCompanyName, setEditableCompanyName] = useState(companyName);
   const [shoeForm, setShoeForm] = useState(emptyShoe);
-  const [companyShoes, setCompanyShoes] = useState([]);
+  const [companyShoes, setCompanyShoes] = useState<CompanyShoe[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function refreshCompanyShoes() {
-    if (!wallet.address) {
+    if (!walletAddress) {
       setCompanyShoes([]);
       return;
     }
 
     try {
-      setCompanyShoes(await listCompanyShoes(wallet.address));
+      setCompanyShoes(await listCompanyShoes(walletAddress));
     } catch {
       setCompanyShoes([]);
     }
   }
 
   useEffect(() => {
-    refreshCompanyShoes();
-  }, [wallet.address]);
+    setEditableCompanyName(companyName);
+  }, [companyName]);
 
-  async function registerCompany(event) {
+  useEffect(() => {
+    refreshCompanyShoes();
+  }, [walletAddress]);
+
+  async function registerCompany(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      if (!wallet.connected) {
+      if (!walletAddress) {
         throw new Error("Connect MetaMask or Rabby Wallet before registering a company.");
       }
 
       let txHash = "";
       if (hasContractAddress()) {
-        const contract = createShoeContract(wallet.address);
-        txHash = await contract.write.registerCompany([companyName], {
-          account: wallet.address,
+        const contract = createShoeContract(walletAddress) as any;
+        txHash = await contract.write.registerCompany([editableCompanyName], {
+          account: walletAddress,
         });
       }
 
       await saveCompany({
-        walletAddress: wallet.address,
-        companyName,
+        walletAddress,
+        companyName: editableCompanyName,
         approved: true,
         txHash,
       });
       setMessage("Company registered. You can now add shoe metadata.");
     } catch (registerError) {
-      setError(registerError.message);
+      setError(registerError instanceof Error ? registerError.message : "Unable to register company.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function addShoe(event) {
+  async function addShoe(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError("");
     setMessage("");
 
     try {
-      if (!wallet.connected) {
+      if (!walletAddress) {
         throw new Error("Connect MetaMask or Rabby Wallet before adding a shoe.");
       }
 
@@ -92,7 +110,7 @@ export function CompanyDashboard({ wallet }) {
       );
 
       if (hasContractAddress()) {
-        const contract = createShoeContract(wallet.address);
+        const contract = createShoeContract(walletAddress) as any;
         txHash = existingShoe
           ? await contract.write.updateShoe(
               [
@@ -102,7 +120,7 @@ export function CompanyDashboard({ wallet }) {
                 BigInt(Number(shoeForm.releaseYear || 0)),
                 true,
               ],
-              { account: wallet.address }
+              { account: walletAddress }
             )
           : await contract.write.addShoe(
               [
@@ -111,14 +129,14 @@ export function CompanyDashboard({ wallet }) {
                 shoeForm.model,
                 BigInt(Number(shoeForm.releaseYear || 0)),
               ],
-              { account: wallet.address }
+              { account: walletAddress }
             );
       }
 
       await saveShoe({
         ...shoeForm,
         releaseYear: Number(shoeForm.releaseYear || 0),
-        companyWallet: wallet.address,
+        companyWallet: walletAddress,
         txHash,
       });
       setShoeForm(emptyShoe);
@@ -129,20 +147,43 @@ export function CompanyDashboard({ wallet }) {
       );
       await refreshCompanyShoes();
     } catch (shoeError) {
-      setError(shoeError.message);
+      setError(shoeError instanceof Error ? shoeError.message : "Unable to save shoe.");
     } finally {
       setLoading(false);
     }
   }
 
+  const verifiedShoesCount = Math.max(companyShoes.length * 4, companyShoes.length ? 1 : 0);
+
   return (
     <div className="grid gap-6">
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
         <p className="text-sm font-semibold text-web3-600">Company Dashboard</p>
-        <h2 className="mt-1 text-2xl font-bold text-ink-900">Register company and shoes</h2>
+        <h2 className="mt-1 text-2xl font-bold text-ink-900">{companyName} operations</h2>
         <p className="mt-2 text-sm text-ink-500">
-          Connected wallet: {wallet.connected ? formatAddress(wallet.address) : "Not connected"}
+          Company wallet: {walletAddress ? formatAddress(walletAddress) : "Not connected"}
         </p>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        <StatCard
+          detail="Backend records for this wallet"
+          icon={PackagePlus}
+          title="Registered Shoes Count"
+          value={companyShoes.length}
+        />
+        <StatCard
+          detail="Mock verification activity"
+          icon={ShieldCheck}
+          title="Verified Shoes Count"
+          value={verifiedShoesCount}
+        />
+        <StatCard
+          detail={wallet.chainId ? `Chain ${wallet.chainId}` : "Provider session pending"}
+          icon={Building2}
+          title="Company Name"
+          value={companyName}
+        />
       </section>
 
       <ErrorMessage message={error} onDismiss={() => setError("")} />
@@ -162,12 +203,15 @@ export function CompanyDashboard({ wallet }) {
             Company Name
             <input
               className="rounded-lg border border-ink-200 px-3 py-2.5 outline-none focus:border-web3-500 focus:ring-2 focus:ring-web3-500/20"
-              onChange={(event) => setCompanyName(event.target.value)}
+              onChange={(event) => setEditableCompanyName(event.target.value)}
               required
-              value={companyName}
+              value={editableCompanyName}
             />
           </label>
-          <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-web3-600 px-4 py-3 font-semibold text-white hover:bg-web3-500" type="submit">
+          <button
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-web3-600 px-4 py-3 font-semibold text-white hover:bg-web3-500"
+            type="submit"
+          >
             {loading ? <LoadingSpinner label="Saving" /> : <Save className="h-5 w-5" />}
             Register Company
           </button>
@@ -196,12 +240,15 @@ export function CompanyDashboard({ wallet }) {
                     setShoeForm((current) => ({ ...current, [field]: event.target.value }))
                   }
                   required={["productCode", "brand", "model", "releaseYear"].includes(field)}
-                  value={shoeForm[field]}
+                  value={shoeForm[field as keyof typeof emptyShoe]}
                 />
               </label>
             ))}
           </div>
-          <button className="mt-4 inline-flex items-center gap-2 rounded-lg bg-web3-600 px-4 py-3 font-semibold text-white hover:bg-web3-500" type="submit">
+          <button
+            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-web3-600 px-4 py-3 font-semibold text-white hover:bg-web3-500"
+            type="submit"
+          >
             {loading ? <LoadingSpinner label="Saving" /> : <PackagePlus className="h-5 w-5" />}
             Add Shoe
           </button>
@@ -249,6 +296,22 @@ export function CompanyDashboard({ wallet }) {
             </table>
           </div>
         )}
+      </section>
+
+      <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
+        <h3 className="text-lg font-bold text-ink-900">Recent Activity</h3>
+        <div className="mt-4 grid gap-3">
+          {mockActivityLogs.slice(0, 3).map((activity) => (
+            <article
+              className="grid gap-1 rounded-lg border border-ink-100 p-4 text-sm md:grid-cols-3"
+              key={activity.id}
+            >
+              <strong>{activity.action}</strong>
+              <span>{activity.product_code || companyName}</span>
+              <span>{activity.created_at}</span>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   );

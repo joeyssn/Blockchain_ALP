@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{js,jsx}"],
+  content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
   theme: {
     extend: {
       colors: {
@@ -11,6 +11,7 @@ export default {
           500: "#64746f",
           700: "#283936",
           900: "#111c1a",
+          950: "#07110f",
         },
         web3: {
           50: "#eafaf2",

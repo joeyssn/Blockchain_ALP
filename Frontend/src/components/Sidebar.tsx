@@ -1,21 +1,25 @@
-import {
-  Building2,
-  History,
-  Home,
-  ShieldCheck,
-  UserCircle,
-} from "lucide-react";
+import { Building2, Home, ShieldCheck, UserCircle, UsersRound } from "lucide-react";
 import { NavLink } from "react-router-dom";
+import { Role } from "../config/roles";
+import { useAuth } from "../context/AuthContext";
+
+type SidebarProps = {
+  open: boolean;
+  onClose: () => void;
+};
 
 const links = [
-  { to: "/", label: "Home", icon: Home },
-  { to: "/verify", label: "Verify Shoe", icon: ShieldCheck },
-  { to: "/company", label: "Company Dashboard", icon: Building2 },
-  { to: "/admin", label: "Admin Dashboard", icon: History },
-  { to: "/profile", label: "Profile", icon: UserCircle },
+  { to: "/", label: "Home", icon: Home, roles: [Role.USER, Role.COMPANY, Role.ADMIN] },
+  { to: "/verify", label: "Verify Shoe", icon: ShieldCheck, roles: [Role.USER, Role.COMPANY, Role.ADMIN] },
+  { to: "/company-dashboard", label: "Company Dashboard", icon: Building2, roles: [Role.COMPANY] },
+  { to: "/admin-dashboard", label: "Admin Dashboard", icon: UsersRound, roles: [Role.ADMIN] },
+  { to: "/profile", label: "Profile", icon: UserCircle, roles: [Role.USER, Role.COMPANY, Role.ADMIN] },
 ];
 
-export function Sidebar({ open, onClose }) {
+export function Sidebar({ open, onClose }: SidebarProps) {
+  const { companyName, role, walletAddress } = useAuth();
+  const visibleLinks = links.filter((link) => link.roles.includes(role));
+
   return (
     <>
       <div
@@ -29,7 +33,7 @@ export function Sidebar({ open, onClose }) {
       >
         <div className="mb-8 flex items-center gap-3 px-2">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-web3-600 font-bold text-white">
-            PV
+            SV
           </div>
           <div>
             <p className="font-bold text-ink-900">ShoeVerify</p>
@@ -38,7 +42,7 @@ export function Sidebar({ open, onClose }) {
         </div>
 
         <nav className="grid gap-1">
-          {links.map((link) => {
+          {visibleLinks.map((link) => {
             const Icon = link.icon;
 
             return (
@@ -62,10 +66,8 @@ export function Sidebar({ open, onClose }) {
         </nav>
 
         <div className="mt-auto rounded-xl bg-ink-900 p-4 text-white">
-          <p className="text-sm font-semibold">Demo mode active</p>
-          <p className="mt-1 text-xs text-ink-200">
-            Shoe-only verification. No payments, NFT, marketplace, or ownership transfer.
-          </p>
+          <p className="text-sm font-semibold">{companyName || `${role} wallet`}</p>
+          <p className="mt-1 break-all text-xs text-ink-200">{walletAddress}</p>
         </div>
       </aside>
     </>

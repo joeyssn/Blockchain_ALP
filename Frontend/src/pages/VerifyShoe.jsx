@@ -11,8 +11,10 @@ import {
   normalizeShoe,
 } from "../services/shoeContract.js";
 import { formatAddress } from "../services/walletService.js";
+import { useAuth } from "../context/AuthContext";
 
-export function VerifyShoe({ wallet }) {
+export function VerifyShoe() {
+  const { wallet } = useAuth();
   const [params] = useSearchParams();
   const initialCode = params.get("code") || "NIKE001";
   const [productCode, setProductCode] = useState(initialCode);
