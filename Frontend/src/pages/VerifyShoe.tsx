@@ -33,17 +33,17 @@ export function VerifyShoe() {
         <p className="text-sm font-semibold text-web3-600">Verify Shoe</p>
         <h2 className="mt-1 text-2xl font-bold text-ink-900">Search registered shoes</h2>
         <p className="mt-2 text-sm text-ink-500">
-          Search by shoe name or company name. Newly registered company shoes appear here
+          Search by shoe code, shoe name, or company name. Newly registered company shoes appear here
           immediately from the shared shoe repository.
         </p>
 
         <form className="mt-6 grid gap-4 md:grid-cols-[1fr_auto]" onSubmit={handleSearch}>
           <label className="grid gap-2 text-sm font-semibold text-ink-700">
-            Shoe Name or Company Name
+            Shoe Code, Shoe Name, or Company Name
             <input
               className="rounded-lg border border-ink-200 px-3 py-2.5 outline-none focus:border-web3-500 focus:ring-2 focus:ring-web3-500/20"
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Air Jordan 1, Nike, Adidas"
+              placeholder="NK-001, Air Jordan 1, Nike"
               value={query}
             />
           </label>
@@ -83,6 +83,9 @@ export function VerifyShoe() {
                     <p className="font-bold text-ink-900">{shoe.shoeName}</p>
                     <p className="mt-1 text-sm font-semibold text-web3-700">
                       {shoe.companyName}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase text-ink-500">
+                      {shoe.shoeCode}
                     </p>
                   </div>
                   <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600" />

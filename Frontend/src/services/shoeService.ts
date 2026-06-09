@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   Timestamp,
-  addDoc,
   collection,
+  doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  setDoc,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "./firebase";
@@ -15,6 +17,7 @@ export type VerificationStatus = "verified";
 
 export type RegisteredShoe = {
   id: string;
+  shoeCode: string;
   shoeName: string;
   companyId: string;
   companyName: string;
@@ -28,6 +31,7 @@ export type RegisteredShoe = {
 export type CreateShoeInput = {
   companyId: string;
   companyName: string;
+  shoeCode: string;
   shoeName: string;
   description: string;
   imageFile: File;
@@ -58,7 +62,8 @@ function toDate(value: unknown) {
 
 function mapShoeDocument(id: string, data: Record<string, unknown>): RegisteredShoe {
   return {
-    id,
+    id: String(data.id || id),
+    shoeCode: String(data.shoeCode || ""),
     shoeName: String(data.shoeName || ""),
     companyId: String(data.companyId || ""),
     companyName: String(data.companyName || ""),
@@ -119,18 +124,30 @@ export function searchShoes(queryText: string, shoes: RegisteredShoe[]) {
   return shoes.filter(
     (shoe) =>
       shoe.shoeName.toLowerCase().includes(normalizedQuery) ||
+      shoe.shoeCode.toLowerCase().includes(normalizedQuery) ||
       shoe.companyName.toLowerCase().includes(normalizedQuery)
   );
 }
 
 export async function registerShoe(input: CreateShoeInput) {
-  const storagePath = `shoes/${input.companyId}/${Date.now()}-${createSlug(input.shoeName)}-${input.imageFile.name}`;
+  const shoeCode = input.shoeCode.trim().toUpperCase();
+  const documentRef = doc(db, SHOES_COLLECTION, createSlug(shoeCode));
+  const existingShoe = await getDoc(documentRef);
+
+  if (existingShoe.exists()) {
+    throw new Error(`Shoe Code ${shoeCode} is already registered.`);
+  }
+
+  const extension = input.imageFile.name.split(".").pop() || "jpg";
+  const storagePath = `shoe-images/${input.companyId}/${shoeCode}.${extension}`;
   const storageRef = ref(storage, storagePath);
 
   await uploadBytes(storageRef, input.imageFile);
   const imageUrl = await getDownloadURL(storageRef);
 
-  const documentRef = await addDoc(collection(db, SHOES_COLLECTION), {
+  await setDoc(documentRef, {
+    id: documentRef.id,
+    shoeCode,
     shoeName: input.shoeName.trim(),
     companyId: input.companyId,
     companyName: input.companyName,
@@ -143,6 +160,7 @@ export async function registerShoe(input: CreateShoeInput) {
 
   return {
     id: documentRef.id,
+    shoeCode,
     shoeName: input.shoeName.trim(),
     companyId: input.companyId,
     companyName: input.companyName,

@@ -15,6 +15,7 @@ import {
 } from "../services/shoeService";
 
 const emptyForm = {
+  shoeCode: "",
   shoeName: "",
   description: "",
   imageFile: null as File | null,
@@ -50,8 +51,13 @@ export function CompanyDashboard() {
     setMessage("");
     setFormError("");
 
-    if (!company || !walletAddress || !form.imageFile) {
-      setFormError("Choose a shoe image before registering.");
+    if (!company || !walletAddress) {
+      setFormError("Company wallet session is not available.");
+      return;
+    }
+
+    if (!form.shoeCode.trim() || !form.shoeName.trim() || !form.description.trim() || !form.imageFile) {
+      setFormError("Shoe Code, Shoe Name, Description, and Shoe Image are required.");
       return;
     }
 
@@ -61,6 +67,7 @@ export function CompanyDashboard() {
       const shoe = await registerShoe({
         companyId: company.id,
         companyName: company.name,
+        shoeCode: form.shoeCode,
         shoeName: form.shoeName,
         description: form.description,
         imageFile: form.imageFile,
@@ -68,7 +75,7 @@ export function CompanyDashboard() {
       });
 
       setForm(emptyForm);
-      setMessage(`${shoe.shoeName} was registered under ${company.name}.`);
+      setMessage(`${shoe.shoeCode} - ${shoe.shoeName} was registered under ${company.name}.`);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Unable to register shoe.");
     } finally {
@@ -127,6 +134,18 @@ export function CompanyDashboard() {
 
         <form className="mt-5 grid gap-4" onSubmit={handleRegisterShoe}>
           <label className="grid gap-2 text-sm font-semibold text-ink-700">
+            Shoe Code
+            <input
+              className="rounded-lg border border-ink-200 px-3 py-2.5 uppercase outline-none focus:border-web3-500 focus:ring-2 focus:ring-web3-500/20"
+              onChange={(event) =>
+                setForm((current) => ({ ...current, shoeCode: event.target.value.toUpperCase() }))
+              }
+              placeholder="NK-001"
+              required
+              value={form.shoeCode}
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-semibold text-ink-700">
             Shoe Name
             <input
               className="rounded-lg border border-ink-200 px-3 py-2.5 outline-none focus:border-web3-500 focus:ring-2 focus:ring-web3-500/20"
@@ -167,7 +186,7 @@ export function CompanyDashboard() {
             type="submit"
           >
             {saving ? <LoadingSpinner label="Registering" /> : <Plus className="h-5 w-5" />}
-            Register New Shoe
+            Register Shoe
           </button>
         </form>
       </section>
@@ -175,26 +194,41 @@ export function CompanyDashboard() {
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
         <h3 className="text-lg font-bold text-ink-900">Registered Shoes</h3>
         {shoesLoading ? <LoadingSpinner label="Loading shoes" /> : null}
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {companyShoes.map((shoe) => (
-            <article className="rounded-lg border border-ink-100 p-4" key={shoe.id}>
-              {shoe.imageUrl && (
-                <img
-                  alt={shoe.shoeName}
-                  className="mb-4 h-36 w-full rounded-lg object-cover"
-                  src={shoe.imageUrl}
-                />
-              )}
-              <p className="font-bold text-ink-900">{shoe.shoeName}</p>
-              <p className="mt-1 text-sm text-ink-500">{shoe.description}</p>
-              <p className="mt-3 text-xs font-semibold text-ink-500">
-                Registered on {formatRegistrationDate(shoe.createdAt)}
-              </p>
-              <span className="mt-3 inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Verified
-              </span>
-            </article>
-          ))}
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full divide-y divide-ink-100 text-sm">
+            <thead className="text-left text-xs uppercase tracking-wide text-ink-500">
+              <tr>
+                <th className="px-4 py-3">Image</th>
+                <th className="px-4 py-3">Shoe Code</th>
+                <th className="px-4 py-3">Shoe Name</th>
+                <th className="px-4 py-3">Description</th>
+                <th className="px-4 py-3">Registration Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {companyShoes.map((shoe) => (
+                <tr key={shoe.id}>
+                  <td className="px-4 py-3">
+                    {shoe.imageUrl ? (
+                      <img
+                        alt={shoe.shoeName}
+                        className="h-14 w-14 rounded-lg object-cover"
+                        src={shoe.imageUrl}
+                      />
+                    ) : (
+                      <span className="text-ink-500">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-ink-900">{shoe.shoeCode}</td>
+                  <td className="px-4 py-3 font-semibold text-ink-900">{shoe.shoeName}</td>
+                  <td className="max-w-xs px-4 py-3 text-ink-500">{shoe.description}</td>
+                  <td className="px-4 py-3 text-ink-700">
+                    {formatRegistrationDate(shoe.createdAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>

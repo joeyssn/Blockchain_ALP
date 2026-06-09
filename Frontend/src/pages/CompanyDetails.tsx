@@ -55,6 +55,14 @@ export function CompanyDetails() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {companyShoes.map((shoe) => (
             <article className="rounded-lg border border-ink-100 p-4" key={shoe.id}>
+              {shoe.imageUrl && (
+                <img
+                  alt={shoe.shoeName}
+                  className="mb-4 h-36 w-full rounded-lg object-cover"
+                  src={shoe.imageUrl}
+                />
+              )}
+              <p className="text-xs font-semibold uppercase text-web3-700">{shoe.shoeCode}</p>
               <p className="font-bold text-ink-900">{shoe.shoeName}</p>
               <p className="mt-1 text-sm text-ink-500">{shoe.description}</p>
               <p className="mt-3 text-xs font-semibold text-ink-500">

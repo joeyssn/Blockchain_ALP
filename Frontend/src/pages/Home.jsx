@@ -16,7 +16,7 @@ export function Home() {
         <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">
-              Verify whether a shoe is authentic by shoe or company name.
+              Verify whether a shoe is authentic by code, shoe, or company name.
             </h2>
             <p className="mt-3 max-w-2xl text-ink-200">
               Official shoe companies register authentic shoes on-chain. Users can
@@ -61,8 +61,9 @@ export function Home() {
             <Link
               className="rounded-xl border border-ink-100 p-4 hover:border-web3-500 hover:bg-web3-50"
               key={shoe.id}
-              to={`/verify?q=${encodeURIComponent(shoe.shoeName)}`}
+              to={`/verify?q=${encodeURIComponent(shoe.shoeCode || shoe.shoeName)}`}
             >
+              <p className="text-xs font-semibold uppercase text-web3-700">{shoe.shoeCode}</p>
               <p className="font-bold text-ink-900">{shoe.shoeName}</p>
               <p className="text-sm text-ink-500">{shoe.companyName}</p>
             </Link>
