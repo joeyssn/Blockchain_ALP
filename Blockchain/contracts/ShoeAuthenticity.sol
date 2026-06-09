@@ -18,11 +18,6 @@ contract ShoeAuthenticity {
     }
 
     address public admin;
-    uint256 public registrationFee;
-    uint256 public verificationFee;
-    uint256 public registrationFeesCollected;
-    uint256 public verificationFeesCollected;
-    uint256 public totalTransactions;
 
     mapping(address => Company) public companies;
     mapping(string => Shoe) private shoes;
@@ -38,8 +33,6 @@ contract ShoeAuthenticity {
     event ShoeVerified(string productCode, bool authentic);
     event ProductRegistered(string shoeCode, address company);
     event ProductVerified(string shoeCode, address verifier);
-    event FeeCollected(address payer, uint256 amount, string transactionType);
-    event FeesWithdrawn(address owner, uint256 amount);
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "Only admin can perform this action");
@@ -53,8 +46,6 @@ contract ShoeAuthenticity {
 
     constructor() {
         admin = msg.sender;
-        registrationFee = 0.0001 ether;
-        verificationFee = 0.00005 ether;
         _registerTrustedCompany(0xd8264294B27C43E5944A6932c7A27D885CB5c758, "Nike");
         _registerTrustedCompany(0x12Ee27D5b5B5e74D2AD1CfD9020C943B9e121D03, "Adidas");
         _registerTrustedCompany(0x0c766c042ABf07f93dcdd06e9d1637d817dE7A63, "Puma");
@@ -95,8 +86,7 @@ contract ShoeAuthenticity {
         string memory _brand,
         string memory _model,
         uint256 _releaseYear
-    ) public payable onlyApprovedCompany {
-        require(msg.value >= registrationFee, "Insufficient registration fee");
+    ) public onlyApprovedCompany {
         require(bytes(_productCode).length > 0, "Product code required");
         require(bytes(_brand).length > 0, "Brand required");
         require(bytes(_model).length > 0, "Model required");
@@ -114,12 +104,9 @@ contract ShoeAuthenticity {
         shoeExists[_productCode] = true;
         shoeCodes.push(_productCode);
         companyShoeCodes[msg.sender].push(_productCode);
-        registrationFeesCollected += msg.value;
-        totalTransactions += 1;
 
         emit ShoeRegistered(_productCode, _brand);
         emit ProductRegistered(_productCode, msg.sender);
-        emit FeeCollected(msg.sender, msg.value, "registration");
     }
 
     function updateShoe(
@@ -143,48 +130,11 @@ contract ShoeAuthenticity {
         emit ShoeUpdated(_productCode);
     }
 
-    function verifyShoe(string memory _productCode) public payable returns (bool) {
-        require(msg.value >= verificationFee, "Insufficient verification fee");
+    function verifyShoe(string memory _productCode) public returns (bool) {
         bool authentic = shoeExists[_productCode] && shoes[_productCode].authentic;
-        verificationFeesCollected += msg.value;
-        totalTransactions += 1;
         emit ShoeVerified(_productCode, authentic);
         emit ProductVerified(_productCode, msg.sender);
-        emit FeeCollected(msg.sender, msg.value, "verification");
         return authentic;
-    }
-
-    function setFees(uint256 _registrationFee, uint256 _verificationFee) public onlyAdmin {
-        registrationFee = _registrationFee;
-        verificationFee = _verificationFee;
-    }
-
-    function getFeeStats()
-        public
-        view
-        returns (
-            uint256 totalFeesCollected,
-            uint256 registrationTotal,
-            uint256 verificationTotal,
-            uint256 transactionCount
-        )
-    {
-        return (
-            registrationFeesCollected + verificationFeesCollected,
-            registrationFeesCollected,
-            verificationFeesCollected,
-            totalTransactions
-        );
-    }
-
-    function withdrawFees() public onlyAdmin {
-        uint256 amount = address(this).balance;
-        require(amount > 0, "No fees to withdraw");
-
-        (bool success, ) = payable(admin).call{value: amount}("");
-        require(success, "Fee withdrawal failed");
-
-        emit FeesWithdrawn(admin, amount);
     }
 
     function getShoe(string memory _productCode) public view returns (Shoe memory) {

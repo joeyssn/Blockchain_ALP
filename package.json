@@ -12,7 +12,6 @@
     "chain": "npm --prefix Blockchain run chain",
     "deploy": "npm --prefix Blockchain run deploy",
     "dev": "npm --prefix Frontend run dev",
-    "fund": "npm --prefix Blockchain run fund",
     "test": "npm --prefix Blockchain test",
     "dev:frontend": "npm --prefix Frontend run dev",
     "dev:backend": "npm --prefix Backend run dev",

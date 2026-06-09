@@ -2,7 +2,6 @@ import {
   createPublicClient,
   createWalletClient,
   custom,
-  formatEther,
   getContract,
   http,
   isAddress,
@@ -23,39 +22,6 @@ export const shoeAuthenticityAbi = [
   },
   {
     type: "function",
-    name: "registrationFee",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "verificationFee",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [{ type: "uint256" }],
-  },
-  {
-    type: "function",
-    name: "getFeeStats",
-    stateMutability: "view",
-    inputs: [],
-    outputs: [
-      { name: "totalFeesCollected", type: "uint256" },
-      { name: "registrationTotal", type: "uint256" },
-      { name: "verificationTotal", type: "uint256" },
-      { name: "transactionCount", type: "uint256" },
-    ],
-  },
-  {
-    type: "function",
-    name: "withdrawFees",
-    stateMutability: "nonpayable",
-    inputs: [],
-    outputs: [],
-  },
-  {
-    type: "function",
     name: "registerCompany",
     stateMutability: "nonpayable",
     inputs: [{ name: "_companyName", type: "string" }],
@@ -64,7 +30,7 @@ export const shoeAuthenticityAbi = [
   {
     type: "function",
     name: "addShoe",
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     inputs: [
       { name: "_productCode", type: "string" },
       { name: "_brand", type: "string" },
@@ -89,7 +55,7 @@ export const shoeAuthenticityAbi = [
   {
     type: "function",
     name: "verifyShoe",
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     inputs: [{ name: "_productCode", type: "string" }],
     outputs: [{ type: "bool" }],
   },
@@ -107,15 +73,6 @@ export const shoeAuthenticityAbi = [
     inputs: [
       { name: "shoeCode", type: "string", indexed: false },
       { name: "verifier", type: "address", indexed: false },
-    ],
-  },
-  {
-    type: "event",
-    name: "FeeCollected",
-    inputs: [
-      { name: "payer", type: "address", indexed: false },
-      { name: "amount", type: "uint256", indexed: false },
-      { name: "transactionType", type: "string", indexed: false },
     ],
   },
   {
@@ -305,112 +262,22 @@ function requireWalletClient(walletClient) {
   }
 }
 
-function getEffectiveGasPrice(receipt) {
-  return receipt.effectiveGasPrice || 0n;
-}
-
-function formatWei(value) {
-  return `${formatEther(value || 0n)} ETH`;
-}
-
-export { formatWei };
-
-export async function estimateRegisterProductTransaction({ account, shoeCode, companyName, shoeName }) {
-  const { publicClient } = await validateShoeContract(account);
-  const protocolFeeWei = await publicClient.readContract({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "registrationFee",
-  });
-  const gas = await publicClient.estimateContractGas({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "addShoe",
-    args: [shoeCode, companyName, shoeName, 0n],
-    account,
-    value: protocolFeeWei,
-  });
-  const gasPrice = await publicClient.getGasPrice();
-  const estimatedGasFeeWei = gas * gasPrice;
-
-  return {
-    gas,
-    gasPrice,
-    protocolFeeWei,
-    estimatedGasFeeWei,
-    estimatedTotalWei: protocolFeeWei + estimatedGasFeeWei,
-    protocolFee: formatWei(protocolFeeWei),
-    estimatedGasFee: formatWei(estimatedGasFeeWei),
-    estimatedTotal: formatWei(protocolFeeWei + estimatedGasFeeWei),
-  };
-}
-
 export async function sendRegisterProductTransaction({ account, shoeCode, companyName, shoeName }) {
   const { publicClient, walletClient } = await validateShoeContract(account);
   requireWalletClient(walletClient);
 
-  const protocolFeeWei = await publicClient.readContract({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "registrationFee",
-  });
   const hash = await walletClient.writeContract({
     address: contractAddress,
     abi: shoeAuthenticityAbi,
     functionName: "addShoe",
     args: [shoeCode, companyName, shoeName, 0n],
     account,
-    value: protocolFeeWei,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  const gasFeeWei = receipt.gasUsed * getEffectiveGasPrice(receipt);
 
   return {
     hash,
     receipt,
-    gasUsed: receipt.gasUsed,
-    gasFeeWei,
-    protocolFeeWei,
-    feePaidWei: gasFeeWei + protocolFeeWei,
-    gasFee: formatWei(gasFeeWei),
-    protocolFee: formatWei(protocolFeeWei),
-    feePaid: formatWei(gasFeeWei + protocolFeeWei),
-  };
-}
-
-export async function estimateVerifyProductTransaction({ account, shoeCode }) {
-  console.log("[VERIFY] Product Found", { shoeCode });
-  const { publicClient } = await validateShoeContract(account);
-  const protocolFeeWei = await publicClient.readContract({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "verificationFee",
-  });
-  const gas = await publicClient.estimateContractGas({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "verifyShoe",
-    args: [shoeCode],
-    account,
-    value: protocolFeeWei,
-  });
-  console.log("[VERIFY] Gas Estimate Complete", {
-    shoeCode,
-    gas: gas.toString(),
-    protocolFee: formatWei(protocolFeeWei),
-  });
-  const gasPrice = await publicClient.getGasPrice();
-  const estimatedGasFeeWei = gas * gasPrice;
-
-  return {
-    gas,
-    gasPrice,
-    protocolFeeWei,
-    estimatedGasFeeWei,
-    estimatedTotalWei: protocolFeeWei + estimatedGasFeeWei,
-    protocolFee: formatWei(protocolFeeWei),
-    estimatedGasFee: formatWei(estimatedGasFeeWei),
-    estimatedTotal: formatWei(protocolFeeWei + estimatedGasFeeWei),
   };
 }
 
@@ -420,18 +287,12 @@ export async function sendVerifyProductTransaction({ account, shoeCode }) {
   requireWalletClient(walletClient);
   console.log("[VERIFY] Wallet Connected", { account, expectedChainId: EXPECTED_CHAIN_ID });
 
-  const protocolFeeWei = await publicClient.readContract({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "verificationFee",
-  });
   const hash = await walletClient.writeContract({
     address: contractAddress,
     abi: shoeAuthenticityAbi,
     functionName: "verifyShoe",
     args: [shoeCode],
     account,
-    value: protocolFeeWei,
   });
   console.log("[VERIFY] Transaction Submitted", { hash });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
@@ -440,43 +301,10 @@ export async function sendVerifyProductTransaction({ account, shoeCode }) {
     blockNumber: receipt.blockNumber?.toString(),
     status: receipt.status,
   });
-  const gasFeeWei = receipt.gasUsed * getEffectiveGasPrice(receipt);
 
   return {
     hash,
     receipt,
-    gasUsed: receipt.gasUsed,
-    gasFeeWei,
-    protocolFeeWei,
-    feePaidWei: gasFeeWei + protocolFeeWei,
-    gasFee: formatWei(gasFeeWei),
-    protocolFee: formatWei(protocolFeeWei),
-    feePaid: formatWei(gasFeeWei + protocolFeeWei),
-  };
-}
-
-export async function getFeeStats() {
-  if (!hasContractAddress()) {
-    return {
-      totalFeesCollected: "0 ETH",
-      registrationFeesCollected: "0 ETH",
-      verificationFeesCollected: "0 ETH",
-      totalTransactions: 0,
-    };
-  }
-
-  const { publicClient } = createClients();
-  const stats = await publicClient.readContract({
-    address: contractAddress,
-    abi: shoeAuthenticityAbi,
-    functionName: "getFeeStats",
-  });
-
-  return {
-    totalFeesCollected: formatWei(stats[0]),
-    registrationFeesCollected: formatWei(stats[1]),
-    verificationFeesCollected: formatWei(stats[2]),
-    totalTransactions: Number(stats[3]),
   };
 }
 

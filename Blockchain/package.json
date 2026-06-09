@@ -10,7 +10,6 @@
     "build": "hardhat compile",
     "chain": "hardhat node",
     "deploy": "node scripts/runLocalhost.cjs scripts/deploy.ts",
-    "fund": "node scripts/runLocalhost.cjs scripts/fundWallets.ts",
     "test": "hardhat test"
   },
   "keywords": [],

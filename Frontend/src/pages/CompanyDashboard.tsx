@@ -7,11 +7,6 @@ import { StatCard } from "../components/StatCard.jsx";
 import { useAuth } from "../context/AuthContext";
 import { findCompanyByName } from "../mock/companyInventory";
 import {
-  estimateRegisterProductTransaction,
-  hasContractAddress,
-  sendRegisterProductTransaction,
-} from "../services/shoeContract.js";
-import {
   assertShoeCodeAvailable,
   formatRegistrationDate,
   getShoesByCompany,
@@ -46,10 +41,6 @@ export function CompanyDashboard() {
   const [message, setMessage] = useState("");
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [showTransactionModal, setShowTransactionModal] = useState(false);
-  const [transactionEstimate, setTransactionEstimate] = useState<any>(null);
-  const [transactionStatus, setTransactionStatus] = useState("");
-  const [transactionResult, setTransactionResult] = useState<any>(null);
 
   const companyShoes = useMemo(
     () => (company ? getShoesByCompany(company.id, allShoes) : []),
@@ -71,8 +62,6 @@ export function CompanyDashboard() {
     event.preventDefault();
     setMessage("");
     setFormError("");
-    setTransactionResult(null);
-    setTransactionStatus("");
 
     if (!company || !walletAddress) {
       setFormError("Company wallet session is not available.");
@@ -92,57 +81,10 @@ export function CompanyDashboard() {
       return;
     }
 
-    if (!hasContractAddress()) {
-      setFormError("Set VITE_CONTRACT_ADDRESS before registering products on-chain.");
-      return;
-    }
-
     setSaving(true);
 
     try {
-      setTransactionStatus("Checking product code...");
       await assertShoeCodeAvailable(form.shoeCode);
-      setTransactionStatus("Estimating gas fee...");
-      const estimate = await estimateRegisterProductTransaction({
-        account: walletAddress,
-        shoeCode: form.shoeCode.trim().toUpperCase(),
-        companyName: company.name,
-        shoeName: form.shoeName.trim(),
-      });
-
-      setTransactionEstimate(estimate);
-      setShowTransactionModal(true);
-      setTransactionStatus("Wallet confirmation required.");
-    } catch (error) {
-      console.error("[REGISTER] Registration failed", error);
-      setFormError(getErrorMessage(error));
-    } finally {
-      console.log("[REGISTER] Loading state cleared");
-      setSaving(false);
-    }
-  }
-
-  async function confirmRegisterTransaction() {
-    if (!company || !walletAddress) {
-      setFormError("Company wallet session is not available.");
-      return;
-    }
-
-    setSaving(true);
-    setTransactionResult(null);
-
-    try {
-      setTransactionStatus("Wallet confirmation required.");
-      const transaction = await sendRegisterProductTransaction({
-        account: walletAddress,
-        shoeCode: form.shoeCode.trim().toUpperCase(),
-        companyName: company.name,
-        shoeName: form.shoeName.trim(),
-      });
-
-      setTransactionStatus("Transaction confirmed. Saving product to Firebase...");
-      setTransactionResult(transaction);
-
       const shoe = await registerShoe({
         companyId: company.id,
         companyName: company.name,
@@ -155,12 +97,11 @@ export function CompanyDashboard() {
 
       setForm(emptyForm);
       setMessage(`${shoe.shoeCode} - ${shoe.shoeName} was registered under ${company.name}.`);
-      setTransactionStatus("Transaction successful.");
     } catch (error) {
-      console.error("[REGISTER] Registration transaction failed", error);
-      setTransactionStatus("Transaction failed.");
+      console.error("[REGISTER] Registration failed", error);
       setFormError(getErrorMessage(error));
     } finally {
+      console.log("[REGISTER] Loading state cleared");
       setSaving(false);
     }
   }
@@ -313,58 +254,6 @@ export function CompanyDashboard() {
           </table>
         </div>
       </section>
-
-      {showTransactionModal && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-900/50 p-4">
-          <section className="w-full max-w-lg rounded-xl bg-white p-5 shadow-soft">
-            <p className="text-sm font-semibold text-web3-600">Register Product</p>
-            <h3 className="mt-1 text-xl font-bold text-ink-900">{form.shoeName}</h3>
-            <div className="mt-4 grid gap-3 rounded-lg bg-ink-50 p-4 text-sm">
-              <TransactionRow label="Shoe Code" value={form.shoeCode} />
-              <TransactionRow label="Registration Fee" value={transactionEstimate?.protocolFee || "-"} />
-              <TransactionRow label="Estimated Gas" value={transactionEstimate?.gas?.toString() || "-"} />
-              <TransactionRow label="Estimated Gas Fee" value={transactionEstimate?.estimatedGasFee || "-"} />
-              <TransactionRow label="Estimated Total" value={transactionEstimate?.estimatedTotal || "-"} />
-              <TransactionRow label="Status" value={transactionStatus || "Ready"} />
-              {transactionResult && (
-                <>
-                  <TransactionRow label="Tx Hash" value={transactionResult.hash} />
-                  <TransactionRow label="Gas Used" value={transactionResult.gasUsed?.toString()} />
-                  <TransactionRow label="Fee Paid" value={transactionResult.feePaid} />
-                </>
-              )}
-            </div>
-            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-lg border border-ink-200 px-4 py-2 font-semibold text-ink-700 hover:border-ink-300"
-                disabled={saving}
-                onClick={() => setShowTransactionModal(false)}
-                type="button"
-              >
-                Close
-              </button>
-              <button
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-web3-600 px-4 py-2 font-semibold text-white hover:bg-web3-500 disabled:opacity-60"
-                disabled={saving || transactionStatus === "Transaction successful."}
-                onClick={confirmRegisterTransaction}
-                type="button"
-              >
-                {saving ? <LoadingSpinner label="Pending" /> : null}
-                Confirm Transaction
-              </button>
-            </div>
-          </section>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TransactionRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-1 sm:grid-cols-[10rem_1fr]">
-      <span className="font-semibold text-ink-500">{label}</span>
-      <span className="break-all font-semibold text-ink-900">{value}</span>
     </div>
   );
 }

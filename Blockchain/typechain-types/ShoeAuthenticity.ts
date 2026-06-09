@@ -71,26 +71,16 @@ export interface ShoeAuthenticityInterface extends Interface {
       | "getAllCompanies"
       | "getAllShoes"
       | "getCompanyShoes"
-      | "getFeeStats"
       | "getShoe"
       | "registerCompany"
-      | "registrationFee"
-      | "registrationFeesCollected"
       | "setCompanyApproval"
-      | "setFees"
-      | "totalTransactions"
       | "updateShoe"
-      | "verificationFee"
-      | "verificationFeesCollected"
       | "verifyShoe"
-      | "withdrawFees"
   ): FunctionFragment;
 
   getEvent(
     nameOrSignatureOrTopic:
       | "CompanyRegistered"
-      | "FeeCollected"
-      | "FeesWithdrawn"
       | "ProductRegistered"
       | "ProductVerified"
       | "ShoeRegistered"
@@ -119,52 +109,20 @@ export interface ShoeAuthenticityInterface extends Interface {
     functionFragment: "getCompanyShoes",
     values: [AddressLike]
   ): string;
-  encodeFunctionData(
-    functionFragment: "getFeeStats",
-    values?: undefined
-  ): string;
   encodeFunctionData(functionFragment: "getShoe", values: [string]): string;
   encodeFunctionData(
     functionFragment: "registerCompany",
     values: [string]
   ): string;
   encodeFunctionData(
-    functionFragment: "registrationFee",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "registrationFeesCollected",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
     functionFragment: "setCompanyApproval",
     values: [AddressLike, boolean]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "setFees",
-    values: [BigNumberish, BigNumberish]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "totalTransactions",
-    values?: undefined
   ): string;
   encodeFunctionData(
     functionFragment: "updateShoe",
     values: [string, string, string, BigNumberish, boolean]
   ): string;
-  encodeFunctionData(
-    functionFragment: "verificationFee",
-    values?: undefined
-  ): string;
-  encodeFunctionData(
-    functionFragment: "verificationFeesCollected",
-    values?: undefined
-  ): string;
   encodeFunctionData(functionFragment: "verifyShoe", values: [string]): string;
-  encodeFunctionData(
-    functionFragment: "withdrawFees",
-    values?: undefined
-  ): string;
 
   decodeFunctionResult(functionFragment: "addShoe", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "admin", data: BytesLike): Result;
@@ -181,46 +139,17 @@ export interface ShoeAuthenticityInterface extends Interface {
     functionFragment: "getCompanyShoes",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(
-    functionFragment: "getFeeStats",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "getShoe", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "registerCompany",
     data: BytesLike
   ): Result;
   decodeFunctionResult(
-    functionFragment: "registrationFee",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "registrationFeesCollected",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
     functionFragment: "setCompanyApproval",
     data: BytesLike
   ): Result;
-  decodeFunctionResult(functionFragment: "setFees", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "totalTransactions",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "updateShoe", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "verificationFee",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "verificationFeesCollected",
-    data: BytesLike
-  ): Result;
   decodeFunctionResult(functionFragment: "verifyShoe", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "withdrawFees",
-    data: BytesLike
-  ): Result;
 }
 
 export namespace CompanyRegisteredEvent {
@@ -228,41 +157,6 @@ export namespace CompanyRegisteredEvent {
   export type OutputTuple = [companyWallet: string];
   export interface OutputObject {
     companyWallet: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace FeeCollectedEvent {
-  export type InputTuple = [
-    payer: AddressLike,
-    amount: BigNumberish,
-    transactionType: string
-  ];
-  export type OutputTuple = [
-    payer: string,
-    amount: bigint,
-    transactionType: string
-  ];
-  export interface OutputObject {
-    payer: string;
-    amount: bigint;
-    transactionType: string;
-  }
-  export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
-  export type Filter = TypedDeferredTopicFilter<Event>;
-  export type Log = TypedEventLog<Event>;
-  export type LogDescription = TypedLogDescription<Event>;
-}
-
-export namespace FeesWithdrawnEvent {
-  export type InputTuple = [owner: AddressLike, amount: BigNumberish];
-  export type OutputTuple = [owner: string, amount: bigint];
-  export interface OutputObject {
-    owner: string;
-    amount: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -385,7 +279,7 @@ export interface ShoeAuthenticity extends BaseContract {
       _releaseYear: BigNumberish
     ],
     [void],
-    "payable"
+    "nonpayable"
   >;
 
   admin: TypedContractMethod<[], [string], "view">;
@@ -420,19 +314,6 @@ export interface ShoeAuthenticity extends BaseContract {
     "view"
   >;
 
-  getFeeStats: TypedContractMethod<
-    [],
-    [
-      [bigint, bigint, bigint, bigint] & {
-        totalFeesCollected: bigint;
-        registrationTotal: bigint;
-        verificationTotal: bigint;
-        transactionCount: bigint;
-      }
-    ],
-    "view"
-  >;
-
   getShoe: TypedContractMethod<
     [_productCode: string],
     [ShoeAuthenticity.ShoeStructOutput],
@@ -445,23 +326,11 @@ export interface ShoeAuthenticity extends BaseContract {
     "nonpayable"
   >;
 
-  registrationFee: TypedContractMethod<[], [bigint], "view">;
-
-  registrationFeesCollected: TypedContractMethod<[], [bigint], "view">;
-
   setCompanyApproval: TypedContractMethod<
     [_companyWallet: AddressLike, _approved: boolean],
     [void],
     "nonpayable"
   >;
-
-  setFees: TypedContractMethod<
-    [_registrationFee: BigNumberish, _verificationFee: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-
-  totalTransactions: TypedContractMethod<[], [bigint], "view">;
 
   updateShoe: TypedContractMethod<
     [
@@ -475,13 +344,11 @@ export interface ShoeAuthenticity extends BaseContract {
     "nonpayable"
   >;
 
-  verificationFee: TypedContractMethod<[], [bigint], "view">;
-
-  verificationFeesCollected: TypedContractMethod<[], [bigint], "view">;
-
-  verifyShoe: TypedContractMethod<[_productCode: string], [boolean], "payable">;
-
-  withdrawFees: TypedContractMethod<[], [void], "nonpayable">;
+  verifyShoe: TypedContractMethod<
+    [_productCode: string],
+    [boolean],
+    "nonpayable"
+  >;
 
   getFunction<T extends ContractMethod = ContractMethod>(
     key: string | FunctionFragment
@@ -497,7 +364,7 @@ export interface ShoeAuthenticity extends BaseContract {
       _releaseYear: BigNumberish
     ],
     [void],
-    "payable"
+    "nonpayable"
   >;
   getFunction(
     nameOrSignature: "admin"
@@ -529,20 +396,6 @@ export interface ShoeAuthenticity extends BaseContract {
     "view"
   >;
   getFunction(
-    nameOrSignature: "getFeeStats"
-  ): TypedContractMethod<
-    [],
-    [
-      [bigint, bigint, bigint, bigint] & {
-        totalFeesCollected: bigint;
-        registrationTotal: bigint;
-        verificationTotal: bigint;
-        transactionCount: bigint;
-      }
-    ],
-    "view"
-  >;
-  getFunction(
     nameOrSignature: "getShoe"
   ): TypedContractMethod<
     [_productCode: string],
@@ -553,28 +406,12 @@ export interface ShoeAuthenticity extends BaseContract {
     nameOrSignature: "registerCompany"
   ): TypedContractMethod<[_companyName: string], [void], "nonpayable">;
   getFunction(
-    nameOrSignature: "registrationFee"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "registrationFeesCollected"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
     nameOrSignature: "setCompanyApproval"
   ): TypedContractMethod<
     [_companyWallet: AddressLike, _approved: boolean],
     [void],
     "nonpayable"
   >;
-  getFunction(
-    nameOrSignature: "setFees"
-  ): TypedContractMethod<
-    [_registrationFee: BigNumberish, _verificationFee: BigNumberish],
-    [void],
-    "nonpayable"
-  >;
-  getFunction(
-    nameOrSignature: "totalTransactions"
-  ): TypedContractMethod<[], [bigint], "view">;
   getFunction(
     nameOrSignature: "updateShoe"
   ): TypedContractMethod<
@@ -589,17 +426,8 @@ export interface ShoeAuthenticity extends BaseContract {
     "nonpayable"
   >;
   getFunction(
-    nameOrSignature: "verificationFee"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "verificationFeesCollected"
-  ): TypedContractMethod<[], [bigint], "view">;
-  getFunction(
     nameOrSignature: "verifyShoe"
-  ): TypedContractMethod<[_productCode: string], [boolean], "payable">;
-  getFunction(
-    nameOrSignature: "withdrawFees"
-  ): TypedContractMethod<[], [void], "nonpayable">;
+  ): TypedContractMethod<[_productCode: string], [boolean], "nonpayable">;
 
   getEvent(
     key: "CompanyRegistered"
@@ -607,20 +435,6 @@ export interface ShoeAuthenticity extends BaseContract {
     CompanyRegisteredEvent.InputTuple,
     CompanyRegisteredEvent.OutputTuple,
     CompanyRegisteredEvent.OutputObject
-  >;
-  getEvent(
-    key: "FeeCollected"
-  ): TypedContractEvent<
-    FeeCollectedEvent.InputTuple,
-    FeeCollectedEvent.OutputTuple,
-    FeeCollectedEvent.OutputObject
-  >;
-  getEvent(
-    key: "FeesWithdrawn"
-  ): TypedContractEvent<
-    FeesWithdrawnEvent.InputTuple,
-    FeesWithdrawnEvent.OutputTuple,
-    FeesWithdrawnEvent.OutputObject
   >;
   getEvent(
     key: "ProductRegistered"
@@ -668,28 +482,6 @@ export interface ShoeAuthenticity extends BaseContract {
       CompanyRegisteredEvent.InputTuple,
       CompanyRegisteredEvent.OutputTuple,
       CompanyRegisteredEvent.OutputObject
-    >;
-
-    "FeeCollected(address,uint256,string)": TypedContractEvent<
-      FeeCollectedEvent.InputTuple,
-      FeeCollectedEvent.OutputTuple,
-      FeeCollectedEvent.OutputObject
-    >;
-    FeeCollected: TypedContractEvent<
-      FeeCollectedEvent.InputTuple,
-      FeeCollectedEvent.OutputTuple,
-      FeeCollectedEvent.OutputObject
-    >;
-
-    "FeesWithdrawn(address,uint256)": TypedContractEvent<
-      FeesWithdrawnEvent.InputTuple,
-      FeesWithdrawnEvent.OutputTuple,
-      FeesWithdrawnEvent.OutputObject
-    >;
-    FeesWithdrawn: TypedContractEvent<
-      FeesWithdrawnEvent.InputTuple,
-      FeesWithdrawnEvent.OutputTuple,
-      FeesWithdrawnEvent.OutputObject
     >;
 
     "ProductRegistered(string,address)": TypedContractEvent<
