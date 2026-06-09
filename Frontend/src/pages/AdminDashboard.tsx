@@ -1,13 +1,46 @@
-import { Building2, ChevronRight, Users } from "lucide-react";
+import { Banknote, Building2, ChevronRight, History, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ErrorMessage } from "../components/ErrorMessage.jsx";
 import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { StatCard } from "../components/StatCard.jsx";
 import { companies, totalMockUsers } from "../mock/companyInventory";
+import { getFeeStats } from "../services/shoeContract.js";
 import { getShoesByCompany, useRegisteredShoes } from "../services/shoeService";
 
 export function AdminDashboard() {
   const { error, loading, shoes: allShoes } = useRegisteredShoes();
+  const [feeStats, setFeeStats] = useState({
+    totalFeesCollected: "0 ETH",
+    registrationFeesCollected: "0 ETH",
+    verificationFeesCollected: "0 ETH",
+    totalTransactions: 0,
+  });
+  const [feeError, setFeeError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFeeStats() {
+      try {
+        const stats = await getFeeStats();
+        if (!cancelled) {
+          setFeeStats(stats);
+          setFeeError("");
+        }
+      } catch (statsError) {
+        if (!cancelled) {
+          setFeeError(statsError instanceof Error ? statsError.message : "Unable to load fee stats.");
+        }
+      }
+    }
+
+    loadFeeStats();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="grid gap-6">
@@ -19,7 +52,7 @@ export function AdminDashboard() {
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <StatCard detail="Mock platform users" icon={Users} title="Total Users" value={totalMockUsers} />
         <StatCard
           detail="Predefined trusted companies"
@@ -27,7 +60,32 @@ export function AdminDashboard() {
           title="Total Companies"
           value={companies.length}
         />
+        <StatCard
+          detail="Registration + verification transactions"
+          icon={History}
+          title="Total Transactions"
+          value={feeStats.totalTransactions}
+        />
+        <StatCard
+          detail="All protocol fees"
+          icon={Banknote}
+          title="Total Fees Collected"
+          value={feeStats.totalFeesCollected}
+        />
+        <StatCard
+          detail="Product registration fees"
+          icon={Banknote}
+          title="Registration Fees Collected"
+          value={feeStats.registrationFeesCollected}
+        />
+        <StatCard
+          detail="Product verification fees"
+          icon={Banknote}
+          title="Verification Fees Collected"
+          value={feeStats.verificationFeesCollected}
+        />
       </section>
+      <ErrorMessage message={feeError} onDismiss={() => setFeeError("")} />
 
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
         <h3 className="text-lg font-bold text-ink-900">Registered Companies</h3>

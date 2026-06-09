@@ -129,6 +129,16 @@ export function searchShoes(queryText: string, shoes: RegisteredShoe[]) {
   );
 }
 
+export async function assertShoeCodeAvailable(shoeCodeInput: string) {
+  const shoeCode = shoeCodeInput.trim().toUpperCase();
+  const documentRef = doc(db, SHOES_COLLECTION, createSlug(shoeCode));
+  const existingShoe = await getDoc(documentRef);
+
+  if (existingShoe.exists()) {
+    throw new Error(`Shoe Code ${shoeCode} is already registered.`);
+  }
+}
+
 export async function registerShoe(input: CreateShoeInput) {
   console.log("[REGISTER] Service started", {
     companyId: input.companyId,

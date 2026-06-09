@@ -10,6 +10,14 @@ async function deployFixture() {
   return { contract, admin, company, otherCompany, user };
 }
 
+async function registrationFee(contract: any) {
+  return contract.read.registrationFee();
+}
+
+async function verificationFee(contract: any) {
+  return contract.read.verificationFee();
+}
+
 async function registerCompany(contract: any, company: any, name = "Nike Official") {
   await contract.write.registerCompany([name], {
     account: company.account,
@@ -37,6 +45,7 @@ describe("ShoeAuthenticity", () => {
     await registerCompany(contract, company);
     await contract.write.addShoe(["NIKE001", "Nike", "Air Jordan 1", 1985n], {
       account: company.account,
+      value: await registrationFee(contract),
     });
 
     const shoe = await contract.read.getShoe(["NIKE001"]);
@@ -50,14 +59,18 @@ describe("ShoeAuthenticity", () => {
   });
 
   it("verifies a registered authentic shoe", async () => {
-    const { contract, company } = await deployFixture();
+    const { contract, company, user } = await deployFixture();
 
     await registerCompany(contract, company);
     await contract.write.addShoe(["ADIDAS001", "Adidas", "Samba OG", 1950n], {
       account: company.account,
+      value: await registrationFee(contract),
     });
 
-    const result = await contract.simulate.verifyShoe(["ADIDAS001"]);
+    const result = await contract.simulate.verifyShoe(["ADIDAS001"], {
+      account: user.account,
+      value: await verificationFee(contract),
+    });
 
     assert.equal(result.result, true);
   });
@@ -68,6 +81,7 @@ describe("ShoeAuthenticity", () => {
     await registerCompany(contract, company);
     await contract.write.addShoe(["NB001", "New Balance", "990v5", 2019n], {
       account: company.account,
+      value: await registrationFee(contract),
     });
     await contract.write.updateShoe(
       ["NB001", "New Balance", "990v6", 2022n, true],
@@ -87,14 +101,18 @@ describe("ShoeAuthenticity", () => {
     await assert.rejects(
       contract.write.addShoe(["FAKE001", "Fake", "Unknown", 2026n], {
         account: user.account,
+        value: await registrationFee(contract),
       })
     );
   });
 
   it("returns false when verifying a non-existing product code", async () => {
-    const { contract } = await deployFixture();
+    const { contract, user } = await deployFixture();
 
-    const result = await contract.simulate.verifyShoe(["UNKNOWN001"]);
+    const result = await contract.simulate.verifyShoe(["UNKNOWN001"], {
+      account: user.account,
+      value: await verificationFee(contract),
+    });
 
     assert.equal(result.result, false);
   });
@@ -118,12 +136,48 @@ describe("ShoeAuthenticity", () => {
     await registerCompany(contract, company);
     await contract.write.addShoe(["NIKE002", "Nike", "Dunk Low", 1985n], {
       account: company.account,
+      value: await registrationFee(contract),
     });
 
     await assert.rejects(
       contract.write.addShoe(["NIKE002", "Nike", "Dunk Low", 1985n], {
         account: company.account,
+        value: await registrationFee(contract),
       })
     );
+  });
+
+  it("rejects registration without fee", async () => {
+    const { contract, company } = await deployFixture();
+
+    await registerCompany(contract, company);
+
+    await assert.rejects(
+      contract.write.addShoe(["FREE001", "Nike", "Free Shoe", 2026n], {
+        account: company.account,
+      })
+    );
+  });
+
+  it("tracks and withdraws collected fees", async () => {
+    const { contract, admin, company, user } = await deployFixture();
+
+    await registerCompany(contract, company);
+    await contract.write.addShoe(["FEE001", "Nike", "Fee Shoe", 2026n], {
+      account: company.account,
+      value: await registrationFee(contract),
+    });
+    await contract.write.verifyShoe(["FEE001"], {
+      account: user.account,
+      value: await verificationFee(contract),
+    });
+
+    const stats = await contract.read.getFeeStats();
+    assert.equal(stats[3], 2n);
+    assert.equal(stats[0], stats[1] + stats[2]);
+
+    await contract.write.withdrawFees([], {
+      account: admin.account,
+    });
   });
 });
