@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { BrowserRouter, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { BrowserRouter, useLocation, useNavigate } from "react-router-dom";
 import { ErrorMessage } from "./components/ErrorMessage.jsx";
 import { Navbar } from "./components/Navbar";
 import { Sidebar } from "./components/Sidebar";
@@ -8,9 +8,16 @@ import { AppRoutes } from "./routes/AppRoutes";
 
 function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const { authError, setAuthError } = useAuth();
+  const { authError, isAuthenticated, setAuthError } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoginPage = location.pathname === "/login";
+
+  useEffect(() => {
+    if (!isAuthenticated && !isLoginPage) {
+      navigate("/login", { replace: true });
+    }
+  }, [isAuthenticated, isLoginPage, navigate]);
 
   if (isLoginPage) {
     return <AppRoutes />;

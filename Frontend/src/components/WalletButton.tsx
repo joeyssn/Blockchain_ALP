@@ -12,7 +12,7 @@ export function WalletButton() {
         <div className="rounded-lg border border-ink-100 bg-ink-50 px-3 py-2 text-sm">
           <p className="font-semibold text-ink-900">{formatAddress(walletAddress)}</p>
           <p className="text-xs text-ink-500">
-            {companyName || roleLabels[role]} {wallet.chainId ? `· Chain ${wallet.chainId}` : ""}
+            {companyName || roleLabels[role]} {wallet.chainId ? `- Chain ${wallet.chainId}` : ""}
           </p>
         </div>
         <button

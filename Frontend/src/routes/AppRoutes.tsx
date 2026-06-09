@@ -3,6 +3,7 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { Role } from "../config/roles";
 import { AdminDashboard } from "../pages/AdminDashboard";
 import { CompanyDashboard } from "../pages/CompanyDashboard";
+import { CompanyDetails } from "../pages/CompanyDetails";
 import { Home } from "../pages/Home.jsx";
 import { Login } from "../pages/Login";
 import { Profile } from "../pages/Profile";
@@ -22,6 +23,7 @@ export function AppRoutes() {
       </Route>
       <Route element={<ProtectedRoute allowedRoles={[Role.ADMIN]} />}>
         <Route element={<AdminDashboard />} path="/admin-dashboard" />
+        <Route element={<CompanyDetails />} path="/admin/company/:companyId" />
       </Route>
       <Route element={<Navigate replace to="/" />} path="/company" />
       <Route element={<Navigate replace to="/" />} path="/admin" />

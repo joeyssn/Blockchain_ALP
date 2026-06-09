@@ -1,57 +1,44 @@
 import { Building2, PackageCheck, ShieldCheck } from "lucide-react";
-import { EmptyState } from "../components/EmptyState.jsx";
+import { Navigate, useParams } from "react-router-dom";
 import { StatCard } from "../components/StatCard.jsx";
-import { useAuth } from "../context/AuthContext";
-import { findCompanyByName, getVerifiedShoeCount } from "../mock/companyInventory";
+import { findCompanyById, getVerifiedShoeCount } from "../mock/companyInventory";
 
-export function CompanyDashboard() {
-  const { companyName } = useAuth();
-  const company = findCompanyByName(companyName);
+export function CompanyDetails() {
+  const { companyId } = useParams();
+  const company = findCompanyById(companyId);
 
   if (!company) {
-    return (
-      <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
-        <EmptyState
-          title="Company inventory unavailable"
-          description="This company wallet is recognized, but no inventory data has been configured yet."
-        />
-      </section>
-    );
+    return <Navigate replace to="/admin-dashboard" />;
   }
 
   return (
     <div className="grid gap-6">
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
-        <p className="text-sm font-semibold text-web3-600">Company Dashboard</p>
+        <p className="text-sm font-semibold text-web3-600">Company Details</p>
         <h2 className="mt-1 text-2xl font-bold text-ink-900">{company.name}</h2>
         <p className="mt-2 text-sm text-ink-500">
-          Predefined company wallet detected. Inventory access is granted automatically.
+          Inventory is scoped to this company only.
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-3">
+        <StatCard detail="Trusted company profile" icon={Building2} title="Company Name" value={company.name} />
         <StatCard
-          detail="Trusted company profile"
-          icon={Building2}
-          title="Company Name"
-          value={company.name}
-        />
-        <StatCard
-          detail="Products owned by this company"
+          detail="Inventory records for this company"
           icon={PackageCheck}
-          title="Total Shoes Registered"
+          title="Total Shoes"
           value={company.shoes.length}
         />
         <StatCard
           detail="Verified inventory records"
           icon={ShieldCheck}
-          title="Total Shoes Verified"
+          title="Verified Shoes"
           value={getVerifiedShoeCount(company)}
         />
       </section>
 
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
-        <h3 className="text-lg font-bold text-ink-900">Registered Shoes</h3>
+        <h3 className="text-lg font-bold text-ink-900">Company Inventory</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {company.shoes.map((shoe) => (
             <article className="rounded-lg border border-ink-100 p-4" key={shoe.id}>
