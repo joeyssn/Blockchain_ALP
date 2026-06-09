@@ -34,7 +34,7 @@ export type CreateShoeInput = {
   shoeCode: string;
   shoeName: string;
   description: string;
-  imageFile: File;
+  imageFile?: File | null;
   createdBy: string;
 };
 
@@ -130,21 +130,47 @@ export function searchShoes(queryText: string, shoes: RegisteredShoe[]) {
 }
 
 export async function registerShoe(input: CreateShoeInput) {
+  console.log("[REGISTER] Service started", {
+    companyId: input.companyId,
+    companyName: input.companyName,
+    shoeCode: input.shoeCode,
+    hasImage: Boolean(input.imageFile),
+  });
+
   const shoeCode = input.shoeCode.trim().toUpperCase();
   const documentRef = doc(db, SHOES_COLLECTION, createSlug(shoeCode));
+
+  console.log("[REGISTER] Duplicate Shoe Code check started", { shoeCode });
   const existingShoe = await getDoc(documentRef);
+  console.log("[REGISTER] Duplicate Shoe Code check completed", {
+    shoeCode,
+    exists: existingShoe.exists(),
+  });
 
   if (existingShoe.exists()) {
     throw new Error(`Shoe Code ${shoeCode} is already registered.`);
   }
 
-  const extension = input.imageFile.name.split(".").pop() || "jpg";
-  const storagePath = `shoe-images/${input.companyId}/${shoeCode}.${extension}`;
-  const storageRef = ref(storage, storagePath);
+  let imageUrl = "";
 
-  await uploadBytes(storageRef, input.imageFile);
-  const imageUrl = await getDownloadURL(storageRef);
+  if (input.imageFile) {
+    const extension = input.imageFile.name.split(".").pop() || "jpg";
+    const storagePath = `shoe-images/${input.companyId}/${shoeCode}.${extension}`;
+    const storageRef = ref(storage, storagePath);
 
+    console.log("[REGISTER] Upload image started", { storagePath });
+    await uploadBytes(storageRef, input.imageFile);
+    imageUrl = await getDownloadURL(storageRef);
+    console.log("[REGISTER] Upload image completed", { storagePath, imageUrl });
+  } else {
+    console.log("[REGISTER] No image uploaded, skipping Firebase Storage upload");
+  }
+
+  console.log("[REGISTER] Firestore write started", {
+    collection: SHOES_COLLECTION,
+    documentId: documentRef.id,
+    shoeCode,
+  });
   await setDoc(documentRef, {
     id: documentRef.id,
     shoeCode,
@@ -156,6 +182,10 @@ export async function registerShoe(input: CreateShoeInput) {
     createdBy: input.createdBy,
     createdAt: serverTimestamp(),
     verificationStatus: "verified" satisfies VerificationStatus,
+  });
+  console.log("[REGISTER] Firestore write completed", {
+    collection: SHOES_COLLECTION,
+    documentId: documentRef.id,
   });
 
   return {

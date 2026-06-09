@@ -21,6 +21,17 @@ const emptyForm = {
   imageFile: null as File | null,
 };
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) {
+    const maybeFirebaseError = error as Error & { code?: string };
+    return maybeFirebaseError.code
+      ? `${maybeFirebaseError.code}: ${error.message}`
+      : error.message;
+  }
+
+  return "Unable to register shoe.";
+}
+
 export function CompanyDashboard() {
   const { companyName, walletAddress } = useAuth();
   const { error: shoesError, loading: shoesLoading, shoes: allShoes } = useRegisteredShoes();
@@ -56,8 +67,16 @@ export function CompanyDashboard() {
       return;
     }
 
-    if (!form.shoeCode.trim() || !form.shoeName.trim() || !form.description.trim() || !form.imageFile) {
-      setFormError("Shoe Code, Shoe Name, Description, and Shoe Image are required.");
+    console.log("[REGISTER] Form submitted", {
+      companyId: company.id,
+      companyName: company.name,
+      shoeCode: form.shoeCode,
+      shoeName: form.shoeName,
+      hasImage: Boolean(form.imageFile),
+    });
+
+    if (!form.shoeCode.trim() || !form.shoeName.trim() || !form.description.trim()) {
+      setFormError("Shoe Code, Shoe Name, and Description are required.");
       return;
     }
 
@@ -77,8 +96,10 @@ export function CompanyDashboard() {
       setForm(emptyForm);
       setMessage(`${shoe.shoeCode} - ${shoe.shoeName} was registered under ${company.name}.`);
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Unable to register shoe.");
+      console.error("[REGISTER] Registration failed", error);
+      setFormError(getErrorMessage(error));
     } finally {
+      console.log("[REGISTER] Loading state cleared");
       setSaving(false);
     }
   }
@@ -167,6 +188,7 @@ export function CompanyDashboard() {
           </label>
           <label className="grid gap-2 text-sm font-semibold text-ink-700">
             Shoe Image
+            <span className="text-xs font-normal text-ink-500">Optional</span>
             <input
               accept="image/*"
               className="rounded-lg border border-ink-200 px-3 py-2.5 outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-web3-50 file:px-3 file:py-1.5 file:font-semibold file:text-web3-700 focus:border-web3-500 focus:ring-2 focus:ring-web3-500/20"
@@ -176,7 +198,6 @@ export function CompanyDashboard() {
                   imageFile: event.target.files?.[0] || null,
                 }))
               }
-              required
               type="file"
             />
           </label>
