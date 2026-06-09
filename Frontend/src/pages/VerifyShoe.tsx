@@ -1,5 +1,5 @@
 import { Search, ShieldCheck } from "lucide-react";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { EmptyState } from "../components/EmptyState.jsx";
 import { ErrorMessage } from "../components/ErrorMessage.jsx";
@@ -7,8 +7,11 @@ import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { useAuth } from "../context/AuthContext";
 import {
   estimateVerifyProductTransaction,
+  EXPECTED_CHAIN_ID,
+  getContractConfiguration,
   hasContractAddress,
   sendVerifyProductTransaction,
+  validateShoeContract,
 } from "../services/shoeContract.js";
 import {
   formatRegistrationDate,
@@ -17,7 +20,7 @@ import {
 } from "../services/shoeService";
 
 export function VerifyShoe() {
-  const { walletAddress } = useAuth();
+  const { wallet, walletAddress } = useAuth();
   const { error, loading, shoes: allShoes } = useRegisteredShoes();
   const [params] = useSearchParams();
   const initialQuery = params.get("q") || "";
@@ -27,6 +30,7 @@ export function VerifyShoe() {
   const [transactionEstimate, setTransactionEstimate] = useState<any>(null);
   const [transactionResult, setTransactionResult] = useState<any>(null);
   const [transactionStatus, setTransactionStatus] = useState("");
+  const [contractStatus, setContractStatus] = useState("");
   const [selectedShoe, setSelectedShoe] = useState<any>(null);
   const [verifying, setVerifying] = useState(false);
 
@@ -34,6 +38,37 @@ export function VerifyShoe() {
     () => searchShoes(submittedQuery, allShoes),
     [allShoes, submittedQuery]
   );
+
+  useEffect(() => {
+    const config = getContractConfiguration();
+    console.log("[VERIFY] Startup configuration", config);
+
+    if (!config.hasAddress) {
+      setContractStatus(
+        "Missing VITE_CONTRACT_ADDRESS. Deploy the contract, update Frontend/.env.local, then restart Vite."
+      );
+      return;
+    }
+
+    let cancelled = false;
+
+    validateShoeContract()
+      .then(() => {
+        if (!cancelled) {
+          setContractStatus(`Contract ready on local Hardhat chain ${EXPECTED_CHAIN_ID}.`);
+        }
+      })
+      .catch((error) => {
+        console.error("[VERIFY] Contract initialization failed", error);
+        if (!cancelled) {
+          setContractStatus(error instanceof Error ? error.message : "Unable to initialize contract.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleSearch(event: FormEvent) {
     event.preventDefault();
@@ -49,11 +84,31 @@ export function VerifyShoe() {
       return;
     }
 
-    if (!hasContractAddress()) {
-      setTransactionError("Set VITE_CONTRACT_ADDRESS before verifying products on-chain.");
+    console.log("[VERIFY] Wallet Connected", {
+      account: walletAddress,
+      chainId: wallet.chainId,
+    });
+
+    if (wallet.chainId && wallet.chainId !== EXPECTED_CHAIN_ID) {
+      setTransactionError(
+        `Wrong wallet network. Expected Chain: ${EXPECTED_CHAIN_ID}. Connected Chain: ${wallet.chainId}. Switch network.`
+      );
       return;
     }
 
+    if (!hasContractAddress()) {
+      const message =
+        "Set VITE_CONTRACT_ADDRESS before verifying products on-chain. Expected Frontend/.env.local to contain the deployed ShoeAuthenticity address.";
+      console.error("[VERIFY] Contract initialization failed", getContractConfiguration());
+      setTransactionError(message);
+      return;
+    }
+
+    console.log("[VERIFY] Product Found", {
+      shoeCode: shoe.shoeCode,
+      shoeName: shoe.shoeName,
+      companyName: shoe.companyName,
+    });
     setSelectedShoe(shoe);
     setVerifying(true);
 
@@ -64,6 +119,7 @@ export function VerifyShoe() {
         shoeCode: shoe.shoeCode,
       });
       setTransactionEstimate(estimate);
+      console.log("[VERIFY] Contract Loaded", getContractConfiguration());
       setTransactionStatus("Wallet confirmation required.");
     } catch (error) {
       console.error("[VERIFY] Fee estimation failed", error);
@@ -89,6 +145,10 @@ export function VerifyShoe() {
         shoeCode: selectedShoe.shoeCode,
       });
       setTransactionResult(result);
+      console.log("[VERIFY] Verification Complete", {
+        shoeCode: selectedShoe.shoeCode,
+        hash: result.hash,
+      });
       setTransactionStatus("Transaction confirmed. Verification recorded on-chain.");
     } catch (error) {
       console.error("[VERIFY] Transaction failed", error);
@@ -132,6 +192,11 @@ export function VerifyShoe() {
       <section className="rounded-xl border border-ink-100 bg-white p-6 shadow-soft">
         <ErrorMessage message={error} onDismiss={() => undefined} />
         <ErrorMessage message={transactionError} onDismiss={() => setTransactionError("")} />
+        {contractStatus && (
+          <div className="mb-4 rounded-lg border border-ink-100 bg-ink-50 px-4 py-3 text-sm text-ink-700">
+            {contractStatus}
+          </div>
+        )}
         {loading && <LoadingSpinner label="Loading shoes" />}
         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
           <h3 className="text-lg font-bold text-ink-900">Verification Results</h3>

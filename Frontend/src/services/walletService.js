@@ -9,8 +9,19 @@ function getInjectedProviders() {
 
   const ethereum = window.ethereum;
   const providers = ethereum?.providers || [ethereum, window.rabby].filter(Boolean);
+  const uniqueProviders = [];
+  const seen = new Set();
 
-  return providers.filter(Boolean);
+  for (const provider of providers.filter(Boolean)) {
+    if (seen.has(provider)) {
+      continue;
+    }
+
+    seen.add(provider);
+    uniqueProviders.push(provider);
+  }
+
+  return uniqueProviders;
 }
 
 export function detectWallets() {
@@ -142,7 +153,10 @@ export function listenAccountChanges(provider, callback) {
   const handler = (accounts) => callback(accounts[0] || "");
   provider.on("accountsChanged", handler);
 
-  return () => provider.removeListener?.("accountsChanged", handler);
+  return () => {
+    provider.removeListener?.("accountsChanged", handler);
+    provider.off?.("accountsChanged", handler);
+  };
 }
 
 export function listenChainChanges(provider, callback) {
@@ -153,7 +167,10 @@ export function listenChainChanges(provider, callback) {
   const handler = (chainId) => callback(normalizeChainId(chainId));
   provider.on("chainChanged", handler);
 
-  return () => provider.removeListener?.("chainChanged", handler);
+  return () => {
+    provider.removeListener?.("chainChanged", handler);
+    provider.off?.("chainChanged", handler);
+  };
 }
 
 export function formatAddress(address) {
