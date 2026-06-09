@@ -18,6 +18,6 @@
     "dev:backend": "npm --prefix Backend run dev",
     "start:backend": "npm --prefix Backend start",
     "preview": "npm --prefix Frontend run preview",
-    "deploy:contract": "npx --prefix Blockchain hardhat run scripts/deploy.ts"
+    "deploy:contract": "npm --prefix Blockchain run deploy"
   }
 }

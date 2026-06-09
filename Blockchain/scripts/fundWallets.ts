@@ -22,9 +22,14 @@ async function main() {
 
     await tx.wait();
 
-    const balance = await ethers.provider.getBalance(wallet.address);
     console.log(`${wallet.label} funded: ${wallet.address}`);
-    console.log(`Balance: ${ethers.formatEther(balance)} ETH`);
+  }
+
+  console.log("\nFinal localhost balances:");
+
+  for (const wallet of ROLE_WALLETS) {
+    const balance = await ethers.provider.getBalance(wallet.address);
+    console.log(`${wallet.label}: ${Number(ethers.formatEther(balance)).toFixed(4)} ETH`);
   }
 }
 
