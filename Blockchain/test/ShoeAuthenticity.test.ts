@@ -1,27 +1,17 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { network } from "hardhat";
+import { expect } from "chai";
+import { ethers } from "hardhat";
 
 async function deployFixture() {
-  const { viem } = await network.create();
-  const [admin, company, otherCompany, user] = await viem.getWalletClients();
-  const contract = await viem.deployContract("ShoeAuthenticity");
+  const [admin, company, otherCompany, user] = await ethers.getSigners();
+  const ShoeAuthenticity = await ethers.getContractFactory("ShoeAuthenticity");
+  const contract = await ShoeAuthenticity.deploy();
+  await contract.waitForDeployment();
 
   return { contract, admin, company, otherCompany, user };
 }
 
-async function registrationFee(contract: any) {
-  return contract.read.registrationFee();
-}
-
-async function verificationFee(contract: any) {
-  return contract.read.verificationFee();
-}
-
 async function registerCompany(contract: any, company: any, name = "Nike Official") {
-  await contract.write.registerCompany([name], {
-    account: company.account,
-  });
+  await contract.connect(company).registerCompany(name);
 }
 
 describe("ShoeAuthenticity", () => {
@@ -30,91 +20,81 @@ describe("ShoeAuthenticity", () => {
 
     await registerCompany(contract, company);
 
-    const registeredCompany = await contract.read.companies([
-      company.account.address,
-    ]);
+    const registeredCompany = await contract.companies(company.address);
 
-    assert.equal(registeredCompany[0].toLowerCase(), company.account.address.toLowerCase());
-    assert.equal(registeredCompany[1], "Nike Official");
-    assert.equal(registeredCompany[2], true);
+    expect(registeredCompany.wallet.toLowerCase()).to.equal(company.address.toLowerCase());
+    expect(registeredCompany.companyName).to.equal("Nike Official");
+    expect(registeredCompany.approved).to.equal(true);
   });
 
-  it("registers a shoe from an approved company", async () => {
+  it("registers a shoe from an approved company with fee", async () => {
     const { contract, company } = await deployFixture();
+    const fee = await contract.registrationFee();
 
     await registerCompany(contract, company);
-    await contract.write.addShoe(["NIKE001", "Nike", "Air Jordan 1", 1985n], {
-      account: company.account,
-      value: await registrationFee(contract),
+    await contract.connect(company).addShoe("NIKE001", "Nike", "Air Jordan 1", 1985, {
+      value: fee,
     });
 
-    const shoe = await contract.read.getShoe(["NIKE001"]);
+    const shoe = await contract.getShoe("NIKE001");
 
-    assert.equal(shoe.productCode, "NIKE001");
-    assert.equal(shoe.brand, "Nike");
-    assert.equal(shoe.model, "Air Jordan 1");
-    assert.equal(shoe.releaseYear, 1985n);
-    assert.equal(shoe.companyWallet.toLowerCase(), company.account.address.toLowerCase());
-    assert.equal(shoe.authentic, true);
+    expect(shoe.productCode).to.equal("NIKE001");
+    expect(shoe.brand).to.equal("Nike");
+    expect(shoe.model).to.equal("Air Jordan 1");
+    expect(shoe.releaseYear).to.equal(1985n);
+    expect(shoe.companyWallet.toLowerCase()).to.equal(company.address.toLowerCase());
+    expect(shoe.authentic).to.equal(true);
   });
 
-  it("verifies a registered authentic shoe", async () => {
+  it("verifies a registered authentic shoe with fee", async () => {
     const { contract, company, user } = await deployFixture();
 
     await registerCompany(contract, company);
-    await contract.write.addShoe(["ADIDAS001", "Adidas", "Samba OG", 1950n], {
-      account: company.account,
-      value: await registrationFee(contract),
+    await contract.connect(company).addShoe("ADIDAS001", "Adidas", "Samba OG", 1950, {
+      value: await contract.registrationFee(),
     });
 
-    const result = await contract.simulate.verifyShoe(["ADIDAS001"], {
-      account: user.account,
-      value: await verificationFee(contract),
-    });
-
-    assert.equal(result.result, true);
+    await expect(
+      contract.connect(user).verifyShoe("ADIDAS001", {
+        value: await contract.verificationFee(),
+      })
+    ).to.emit(contract, "ProductVerified").withArgs("ADIDAS001", user.address);
   });
 
   it("updates shoe information", async () => {
     const { contract, company } = await deployFixture();
 
     await registerCompany(contract, company);
-    await contract.write.addShoe(["NB001", "New Balance", "990v5", 2019n], {
-      account: company.account,
-      value: await registrationFee(contract),
+    await contract.connect(company).addShoe("NB001", "New Balance", "990v5", 2019, {
+      value: await contract.registrationFee(),
     });
-    await contract.write.updateShoe(
-      ["NB001", "New Balance", "990v6", 2022n, true],
-      { account: company.account }
-    );
+    await contract.connect(company).updateShoe("NB001", "New Balance", "990v6", 2022, true);
 
-    const shoe = await contract.read.getShoe(["NB001"]);
+    const shoe = await contract.getShoe("NB001");
 
-    assert.equal(shoe.model, "990v6");
-    assert.equal(shoe.releaseYear, 2022n);
-    assert.equal(shoe.authentic, true);
+    expect(shoe.model).to.equal("990v6");
+    expect(shoe.releaseYear).to.equal(2022n);
+    expect(shoe.authentic).to.equal(true);
   });
 
   it("rejects an unauthorized wallet adding a shoe", async () => {
     const { contract, user } = await deployFixture();
 
-    await assert.rejects(
-      contract.write.addShoe(["FAKE001", "Fake", "Unknown", 2026n], {
-        account: user.account,
-        value: await registrationFee(contract),
+    await expect(
+      contract.connect(user).addShoe("FAKE001", "Fake", "Unknown", 2026, {
+        value: await contract.registrationFee(),
       })
-    );
+    ).to.be.revertedWith("Company is not registered or approved");
   });
 
   it("returns false when verifying a non-existing product code", async () => {
     const { contract, user } = await deployFixture();
 
-    const result = await contract.simulate.verifyShoe(["UNKNOWN001"], {
-      account: user.account,
-      value: await verificationFee(contract),
-    });
-
-    assert.equal(result.result, false);
+    await expect(
+      contract.connect(user).verifyShoe("UNKNOWN001", {
+        value: await contract.verificationFee(),
+      })
+    ).to.emit(contract, "ShoeVerified").withArgs("UNKNOWN001", false);
   });
 
   it("rejects updating a non-existing shoe", async () => {
@@ -122,29 +102,24 @@ describe("ShoeAuthenticity", () => {
 
     await registerCompany(contract, company);
 
-    await assert.rejects(
-      contract.write.updateShoe(
-        ["MISSING001", "Nike", "Missing Model", 2026n, true],
-        { account: company.account }
-      )
-    );
+    await expect(
+      contract.connect(company).updateShoe("MISSING001", "Nike", "Missing Model", 2026, true)
+    ).to.be.revertedWith("Shoe does not exist");
   });
 
   it("rejects duplicate product codes", async () => {
     const { contract, company } = await deployFixture();
 
     await registerCompany(contract, company);
-    await contract.write.addShoe(["NIKE002", "Nike", "Dunk Low", 1985n], {
-      account: company.account,
-      value: await registrationFee(contract),
+    await contract.connect(company).addShoe("NIKE002", "Nike", "Dunk Low", 1985, {
+      value: await contract.registrationFee(),
     });
 
-    await assert.rejects(
-      contract.write.addShoe(["NIKE002", "Nike", "Dunk Low", 1985n], {
-        account: company.account,
-        value: await registrationFee(contract),
+    await expect(
+      contract.connect(company).addShoe("NIKE002", "Nike", "Dunk Low", 1985, {
+        value: await contract.registrationFee(),
       })
-    );
+    ).to.be.revertedWith("Product code already exists");
   });
 
   it("rejects registration without fee", async () => {
@@ -152,32 +127,26 @@ describe("ShoeAuthenticity", () => {
 
     await registerCompany(contract, company);
 
-    await assert.rejects(
-      contract.write.addShoe(["FREE001", "Nike", "Free Shoe", 2026n], {
-        account: company.account,
-      })
-    );
+    await expect(
+      contract.connect(company).addShoe("FREE001", "Nike", "Free Shoe", 2026)
+    ).to.be.revertedWith("Insufficient registration fee");
   });
 
   it("tracks and withdraws collected fees", async () => {
     const { contract, admin, company, user } = await deployFixture();
 
     await registerCompany(contract, company);
-    await contract.write.addShoe(["FEE001", "Nike", "Fee Shoe", 2026n], {
-      account: company.account,
-      value: await registrationFee(contract),
+    await contract.connect(company).addShoe("FEE001", "Nike", "Fee Shoe", 2026, {
+      value: await contract.registrationFee(),
     });
-    await contract.write.verifyShoe(["FEE001"], {
-      account: user.account,
-      value: await verificationFee(contract),
+    await contract.connect(user).verifyShoe("FEE001", {
+      value: await contract.verificationFee(),
     });
 
-    const stats = await contract.read.getFeeStats();
-    assert.equal(stats[3], 2n);
-    assert.equal(stats[0], stats[1] + stats[2]);
+    const stats = await contract.getFeeStats();
+    expect(stats.transactionCount).to.equal(2n);
+    expect(stats.totalFeesCollected).to.equal(stats.registrationTotal + stats.verificationTotal);
 
-    await contract.write.withdrawFees([], {
-      account: admin.account,
-    });
+    await expect(contract.connect(admin).withdrawFees()).to.emit(contract, "FeesWithdrawn");
   });
 });

@@ -1,19 +1,17 @@
-import hre from "hardhat";
+import { ethers } from "hardhat";
 
 async function main() {
+  const ShoeAuthenticity = await ethers.getContractFactory("ShoeAuthenticity");
+  const shoeAuthenticity = await ShoeAuthenticity.deploy();
 
-    const contract =
-        await hre.viem.deployContract(
-            "ShoeAuthenticity"
-        );
+  await shoeAuthenticity.waitForDeployment();
 
-    console.log(
-        "Contract deployed to:",
-        contract.address
-    );
+  const address = await shoeAuthenticity.getAddress();
+  console.log("ShoeAuthenticity deployed to:", address);
+  console.log("Set Frontend/.env VITE_CONTRACT_ADDRESS=", address);
 }
 
 main().catch((error) => {
-    console.error(error);
-    process.exitCode = 1;
+  console.error(error);
+  process.exitCode = 1;
 });

@@ -1,28 +1,28 @@
-import hardhatViemPlugin from "@nomicfoundation/hardhat-viem";
-import { defineConfig } from "hardhat/config";
+import "@nomicfoundation/hardhat-toolbox";
+import dotenv from "dotenv";
+import { HardhatUserConfig } from "hardhat/config";
 
-export default defineConfig({
-  plugins: [hardhatViemPlugin],
+dotenv.config();
+
+const config: HardhatUserConfig = {
   solidity: {
-    profiles: {
-      default: {
-        version: "0.8.19",
-      },
-      production: {
-        version: "0.8.19",
-        settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
-        },
+    version: "0.8.19",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200,
       },
     },
   },
   networks: {
-    hardhatMainnet: {
-      type: "edr-simulated",
-      chainType: "l1",
+    hardhat: {
+      chainId: 31337,
+    },
+    localhost: {
+      url: process.env.LOCALHOST_RPC_URL || "http://127.0.0.1:8545",
+      chainId: 31337,
     },
   },
-});
+};
+
+export default config;
