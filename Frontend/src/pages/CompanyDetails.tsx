@@ -1,15 +1,26 @@
 import { Building2, PackageCheck, ShieldCheck } from "lucide-react";
 import { Navigate, useParams } from "react-router-dom";
+import { ErrorMessage } from "../components/ErrorMessage.jsx";
+import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { StatCard } from "../components/StatCard.jsx";
-import { findCompanyById, getVerifiedShoeCount } from "../mock/companyInventory";
+import { findCompanyById } from "../mock/companyInventory";
+import {
+  formatRegistrationDate,
+  getShoesByCompany,
+  getVerifiedShoeCount,
+  useRegisteredShoes,
+} from "../services/shoeService";
 
 export function CompanyDetails() {
   const { companyId } = useParams();
+  const { error, loading, shoes: allShoes } = useRegisteredShoes();
   const company = findCompanyById(companyId);
 
   if (!company) {
     return <Navigate replace to="/admin-dashboard" />;
   }
+
+  const companyShoes = getShoesByCompany(company.id, allShoes);
 
   return (
     <div className="grid gap-6">
@@ -27,31 +38,36 @@ export function CompanyDetails() {
           detail="Inventory records for this company"
           icon={PackageCheck}
           title="Total Shoes"
-          value={company.shoes.length}
+          value={companyShoes.length}
         />
         <StatCard
           detail="Verified inventory records"
           icon={ShieldCheck}
           title="Verified Shoes"
-          value={getVerifiedShoeCount(company)}
+          value={getVerifiedShoeCount(companyShoes)}
         />
       </section>
 
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
+        <ErrorMessage message={error} onDismiss={() => undefined} />
+        {loading && <LoadingSpinner label="Loading shoes" />}
         <h3 className="text-lg font-bold text-ink-900">Company Inventory</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {company.shoes.map((shoe) => (
+          {companyShoes.map((shoe) => (
             <article className="rounded-lg border border-ink-100 p-4" key={shoe.id}>
-              <p className="font-bold text-ink-900">{shoe.name}</p>
-              <p className="mt-1 text-sm text-ink-500">{shoe.model}</p>
+              <p className="font-bold text-ink-900">{shoe.shoeName}</p>
+              <p className="mt-1 text-sm text-ink-500">{shoe.description}</p>
+              <p className="mt-3 text-xs font-semibold text-ink-500">
+                Registered on {formatRegistrationDate(shoe.createdAt)}
+              </p>
               <span
                 className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                  shoe.verified
+                  shoe.verificationStatus === "verified"
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {shoe.verified ? "Verified" : "Pending verification"}
+                {shoe.verificationStatus}
               </span>
             </article>
           ))}

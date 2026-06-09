@@ -1,9 +1,14 @@
 import { Building2, ChevronRight, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ErrorMessage } from "../components/ErrorMessage.jsx";
+import { LoadingSpinner } from "../components/LoadingSpinner.jsx";
 import { StatCard } from "../components/StatCard.jsx";
 import { companies, totalMockUsers } from "../mock/companyInventory";
+import { getShoesByCompany, useRegisteredShoes } from "../services/shoeService";
 
 export function AdminDashboard() {
+  const { error, loading, shoes: allShoes } = useRegisteredShoes();
+
   return (
     <div className="grid gap-6">
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
@@ -26,6 +31,8 @@ export function AdminDashboard() {
 
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
         <h3 className="text-lg font-bold text-ink-900">Registered Companies</h3>
+        <ErrorMessage message={error} onDismiss={() => undefined} />
+        {loading && <LoadingSpinner label="Loading companies" />}
         <div className="mt-4 grid gap-3">
           {companies.map((company) => (
             <article
@@ -37,7 +44,7 @@ export function AdminDashboard() {
                 <p className="text-sm text-ink-500">Trusted company wallet</p>
               </div>
               <div className="text-sm font-semibold text-ink-700">
-                {company.shoes.length} shoes listed
+                {getShoesByCompany(company.id, allShoes).length} shoes listed
               </div>
               <Link
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-ink-200 px-3 py-2 text-sm font-semibold text-ink-700 hover:border-web3-500 hover:text-web3-700"

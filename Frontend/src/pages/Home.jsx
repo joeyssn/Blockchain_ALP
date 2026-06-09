@@ -1,9 +1,12 @@
 import { ArrowRight, Building2, ShieldCheck, UserSearch } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatCard } from "../components/StatCard.jsx";
-import { mockShoes } from "../mock/shoes.js";
+import { useRegisteredShoes } from "../services/shoeService";
 
 export function Home() {
+  const { shoes } = useRegisteredShoes();
+  const sampleShoes = shoes.slice(0, 3);
+
   return (
     <div className="grid gap-6">
       <section className="rounded-2xl bg-ink-900 p-6 text-white shadow-soft">
@@ -13,12 +16,11 @@ export function Home() {
         <div className="mt-3 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">
-              Verify whether a shoe is authentic using a product code.
+              Verify whether a shoe is authentic by shoe or company name.
             </h2>
             <p className="mt-3 max-w-2xl text-ink-200">
               Official shoe companies register authentic shoes on-chain. Users can
-              search a product code and view blockchain authenticity with supporting
-              metadata from the backend database.
+              search the shared shoe inventory and view registration details.
             </p>
           </div>
           <Link
@@ -53,18 +55,16 @@ export function Home() {
       </section>
 
       <section className="rounded-xl border border-ink-100 bg-white p-5 shadow-soft">
-        <h3 className="text-lg font-bold text-ink-900">Try a sample product code</h3>
+        <h3 className="text-lg font-bold text-ink-900">Try a sample shoe search</h3>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {mockShoes.map((shoe) => (
+          {sampleShoes.map((shoe) => (
             <Link
               className="rounded-xl border border-ink-100 p-4 hover:border-web3-500 hover:bg-web3-50"
-              key={shoe.product_code}
-              to={`/verify?code=${shoe.product_code}`}
+              key={shoe.id}
+              to={`/verify?q=${encodeURIComponent(shoe.shoeName)}`}
             >
-              <p className="font-bold text-ink-900">{shoe.product_code}</p>
-              <p className="text-sm text-ink-500">
-                {shoe.brand} {shoe.model}
-              </p>
+              <p className="font-bold text-ink-900">{shoe.shoeName}</p>
+              <p className="text-sm text-ink-500">{shoe.companyName}</p>
             </Link>
           ))}
         </div>
