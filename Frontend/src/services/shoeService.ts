@@ -9,6 +9,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { db, storage } from "./firebase";
@@ -25,6 +26,7 @@ export type RegisteredShoe = {
   imageUrl: string;
   createdBy: string;
   createdAt: Date;
+  updatedAt?: Date;
   verificationStatus: VerificationStatus;
 };
 
@@ -36,6 +38,15 @@ export type CreateShoeInput = {
   description: string;
   imageFile?: File | null;
   createdBy: string;
+};
+
+export type UpdateShoeInput = {
+  shoeId: string;
+  companyId: string;
+  shoeCode: string;
+  shoeName: string;
+  description: string;
+  imageFile?: File | null;
 };
 
 const SHOES_COLLECTION = "shoes";
@@ -71,6 +82,7 @@ function mapShoeDocument(id: string, data: Record<string, unknown>): RegisteredS
     imageUrl: String(data.imageUrl || ""),
     createdBy: String(data.createdBy || ""),
     createdAt: toDate(data.createdAt),
+    updatedAt: data.updatedAt ? toDate(data.updatedAt) : undefined,
     verificationStatus: "verified",
   };
 }
@@ -209,6 +221,55 @@ export async function registerShoe(input: CreateShoeInput) {
     createdBy: input.createdBy,
     createdAt: new Date(),
     verificationStatus: "verified" as VerificationStatus,
+  };
+}
+
+export async function updateShoe(input: UpdateShoeInput) {
+  const shoeName = input.shoeName.trim();
+  const description = input.description.trim();
+
+  if (!shoeName || !description) {
+    throw new Error("Shoe Name and Description are required.");
+  }
+
+  const documentRef = doc(db, SHOES_COLLECTION, input.shoeId);
+  const existingShoe = await getDoc(documentRef);
+
+  if (!existingShoe.exists()) {
+    throw new Error("Shoe record was not found.");
+  }
+
+  const existingData = existingShoe.data() as Record<string, unknown>;
+
+  if (String(existingData.companyId || "") !== input.companyId) {
+    throw new Error("You can only update shoes registered by your company.");
+  }
+
+  let imageUrl = String(existingData.imageUrl || "");
+
+  if (input.imageFile) {
+    const extension = input.imageFile.name.split(".").pop() || "jpg";
+    const shoeCode = input.shoeCode.trim().toUpperCase();
+    const storagePath = `shoe-images/${input.companyId}/${shoeCode}-${Date.now()}.${extension}`;
+    const storageRef = ref(storage, storagePath);
+
+    await uploadBytes(storageRef, input.imageFile);
+    imageUrl = await getDownloadURL(storageRef);
+  }
+
+  await updateDoc(documentRef, {
+    shoeName,
+    description,
+    imageUrl,
+    updatedAt: serverTimestamp(),
+  });
+
+  return {
+    ...mapShoeDocument(input.shoeId, existingData),
+    shoeName,
+    description,
+    imageUrl,
+    updatedAt: new Date(),
   };
 }
 
